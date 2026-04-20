@@ -571,6 +571,43 @@
   }
   .modal-close:hover { color: var(--text); background: var(--bg); }
 
+  /* Attachments */
+  .attachment-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+
+  .attachment-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: #f7f9fb; border: 1px solid var(--border);
+    border-radius: 6px; padding: 7px 10px; font-size: 12px;
+  }
+
+  .attachment-chip .att-icon {
+    width: 28px; height: 28px; border-radius: 5px;
+    background: #e8f0fe; color: #2979b8;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  }
+
+  .attachment-chip .att-name { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .attachment-chip .att-size { color: var(--text-muted); white-space: nowrap; }
+
+  .att-drop-zone {
+    border: 2px dashed var(--border); border-radius: 6px;
+    padding: 14px; text-align: center; cursor: pointer;
+    font-size: 12px; color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .att-drop-zone:hover, .att-drop-zone.drag-over {
+    border-color: var(--green); background: rgba(91,171,68,0.04); color: var(--green);
+  }
+
+  .att-size-bar {
+    height: 4px; background: var(--border); border-radius: 2px;
+    overflow: hidden; margin-top: 8px;
+  }
+  .att-size-bar-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width 0.3s; }
+  .att-size-bar-fill.warn  { background: var(--warning); }
+  .att-size-bar-fill.danger { background: var(--danger); }
+
   /* Duplicate warning chip */
   .dupe-warning {
     display: flex; align-items: center; gap: 8px;
@@ -737,6 +774,23 @@
           <div id="editor"></div>
         </div>
       </div>
+
+      <div class="field-group" style="margin-bottom:0">
+        <label>Attachments
+          <span id="att-badge" style="margin-left:8px; font-size:10px; font-weight:600; text-transform:none; letter-spacing:0; background:#e8f0fe; color:#2979b8; border:1px solid #bdd4f5; border-radius:4px; padding:2px 7px; display:none;"></span>
+        </label>
+        <div class="att-drop-zone" id="att-drop-zone"
+          onclick="document.getElementById('att-input').click()"
+          ondragover="attDragOver(event)" ondragleave="attDragLeave(event)" ondrop="attDrop(event)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:inline-block; vertical-align:middle; margin-right:6px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          Attach files — drag & drop or click to browse
+          <span style="display:block; font-size:11px; margin-top:3px; opacity:0.7">Max 30 MB total · sent to every recipient</span>
+        </div>
+        <input type="file" id="att-input" multiple class="hidden" onchange="attFileSelect(event)">
+        <div id="att-size-bar" class="att-size-bar hidden"><div class="att-size-bar-fill" id="att-size-fill"></div></div>
+        <div id="att-size-label" class="text-muted hidden" style="margin-top:4px; text-align:right;"></div>
+        <div class="attachment-list" id="att-list"></div>
+      </div>
     </div>
 
     <!-- PREVIEW TAB -->
@@ -771,6 +825,7 @@
             <div><span style="color:var(--text-muted)">From:</span> <strong id="sum-from">—</strong></div>
             <div><span style="color:var(--text-muted)">Subject:</span> <strong id="sum-subject">—</strong></div>
             <div><span style="color:var(--text-muted)">API Key:</span> <strong id="sum-key">Not set</strong></div>
+            <div><span style="color:var(--text-muted)">Attachments:</span> <strong id="sum-attachments">None</strong></div>
           </div>
         </div>
       </div>
@@ -880,6 +935,7 @@ let lastCursorIndex = 0;
 let currentCampaignId = null;
 let currentCampaignCsvText = '';
 let draftTimer = null;
+let attachments = []; // [{ filename, type, content (base64), size }]
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -1165,6 +1221,10 @@ function updateSendSummary() {
   document.getElementById('sum-subject').textContent = document.getElementById('subject').value || '—';
   const key = document.getElementById('api-key').value;
   document.getElementById('sum-key').textContent = key ? key.slice(0, 8) + '…' : 'Not set';
+  const totalSize = attachments.reduce((s, a) => s + a.size, 0);
+  document.getElementById('sum-attachments').textContent = attachments.length === 0
+    ? 'None'
+    : `${attachments.length} file${attachments.length !== 1 ? 's' : ''} (${fmtBytes(totalSize)})`;
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -1237,6 +1297,7 @@ async function startSend() {
         subject: personalSubject,
         html: personalHtml,
         text: personalText,
+        attachments,
       });
 
       if (resp.ok) {
@@ -1295,22 +1356,31 @@ function stopSend() {
   document.getElementById('footer-status').textContent = 'Stopping after current email…';
 }
 
-async function sendEmail(apiKey, { from, to, subject, html, text }) {
+async function sendEmail(apiKey, { from, to, subject, html, text, attachments: atts }) {
+  const payload = {
+    personalizations: [{ to: [to] }],
+    from,
+    subject,
+    content: [
+      { type: 'text/plain', value: text },
+      { type: 'text/html',  value: html },
+    ],
+  };
+  if (atts && atts.length > 0) {
+    payload.attachments = atts.map(a => ({
+      content:     a.content,
+      filename:    a.filename,
+      type:        a.type,
+      disposition: 'attachment',
+    }));
+  }
   return fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      personalizations: [{ to: [to] }],
-      from,
-      subject,
-      content: [
-        { type: 'text/plain', value: text },
-        { type: 'text/html',  value: html },
-      ],
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -1357,6 +1427,112 @@ function downloadCSV(filename, content) {
   a.href = URL.createObjectURL(new Blob([content], { type: 'text/csv' }));
   a.download = filename;
   a.click();
+}
+
+// ─── Attachments ─────────────────────────────────────────────────────────────
+const ATT_MAX_BYTES = 30 * 1024 * 1024; // SendGrid 30 MB total limit
+
+function attDragOver(e) {
+  e.preventDefault();
+  document.getElementById('att-drop-zone').classList.add('drag-over');
+}
+function attDragLeave() {
+  document.getElementById('att-drop-zone').classList.remove('drag-over');
+}
+function attDrop(e) {
+  e.preventDefault();
+  document.getElementById('att-drop-zone').classList.remove('drag-over');
+  addAttachmentFiles([...e.dataTransfer.files]);
+}
+function attFileSelect(e) {
+  addAttachmentFiles([...e.target.files]);
+  e.target.value = '';
+}
+
+function addAttachmentFiles(files) {
+  const promises = files.map(file => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      // e.target.result is a data URL: "data:<type>;base64,<content>"
+      const dataUrl = e.target.result;
+      const base64  = dataUrl.split(',')[1];
+      resolve({ filename: file.name, type: file.type || 'application/octet-stream', content: base64, size: file.size });
+    };
+    reader.readAsDataURL(file);
+  }));
+
+  Promise.all(promises).then(newAtts => {
+    // Skip duplicates by filename
+    const existing = new Set(attachments.map(a => a.filename));
+    const added = newAtts.filter(a => !existing.has(a.filename));
+    const skipped = newAtts.length - added.length;
+    attachments.push(...added);
+    renderAttachments();
+    if (skipped > 0) toast(`${skipped} file(s) already attached (skipped)`, 'warning');
+    checkAttSize();
+  });
+}
+
+function removeAttachment(idx) {
+  attachments.splice(idx, 1);
+  renderAttachments();
+  checkAttSize();
+}
+
+function renderAttachments() {
+  const list  = document.getElementById('att-list');
+  const badge = document.getElementById('att-badge');
+
+  if (attachments.length === 0) {
+    list.innerHTML = '';
+    badge.style.display = 'none';
+    document.getElementById('att-size-bar').classList.add('hidden');
+    document.getElementById('att-size-label').classList.add('hidden');
+    return;
+  }
+
+  badge.textContent = `${attachments.length} file${attachments.length !== 1 ? 's' : ''}`;
+  badge.style.display = '';
+
+  list.innerHTML = attachments.map((a, i) => {
+    const ext = a.filename.split('.').pop().slice(0, 4).toUpperCase() || '?';
+    return `
+    <div class="attachment-chip">
+      <div class="att-icon">${esc(ext)}</div>
+      <div class="att-name" title="${esc(a.filename)}">${esc(a.filename)}</div>
+      <div class="att-size">${fmtBytes(a.size)}</div>
+      <button class="btn btn-secondary btn-sm btn-icon" title="Remove" onclick="removeAttachment(${i})">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function checkAttSize() {
+  const total = attachments.reduce((s, a) => s + a.size, 0);
+  const bar   = document.getElementById('att-size-bar');
+  const fill  = document.getElementById('att-size-fill');
+  const label = document.getElementById('att-size-label');
+
+  if (attachments.length === 0) return;
+
+  bar.classList.remove('hidden');
+  label.classList.remove('hidden');
+
+  const pct = Math.min(100, (total / ATT_MAX_BYTES) * 100);
+  fill.style.width = pct + '%';
+  fill.className = 'att-size-bar-fill' + (pct > 90 ? ' danger' : pct > 70 ? ' warn' : '');
+  label.textContent = `${fmtBytes(total)} of 30 MB used`;
+
+  if (total > ATT_MAX_BYTES) {
+    toast('Total attachment size exceeds 30 MB — SendGrid will reject this email', 'error');
+  }
+}
+
+function fmtBytes(bytes) {
+  if (bytes < 1024)        return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 // ─── Test Send ────────────────────────────────────────────────────────────────
@@ -1409,6 +1585,7 @@ async function runTestSend() {
       subject: `[TEST] ${personalSubject}`,
       html: personalHtml,
       text: personalText,
+      attachments,
     });
 
     if (resp.ok) {

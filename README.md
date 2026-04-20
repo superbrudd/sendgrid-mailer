@@ -10,6 +10,7 @@ A self-contained, single-file web app for sending personalised bulk email campai
 - **CSV recipient upload** — Drag & drop or browse for a CSV; every column header automatically becomes a template variable
 - **Personalisation** — Use `{{variable}}` placeholders in the subject and body; click any chip to insert at cursor
 - **Live preview** — See exactly how each recipient's personalised email will look before sending
+- **Attachments** — Attach one or more files to every outgoing email; drag & drop or browse; shows a size bar with a 30 MB SendGrid limit warning
 - **Test send** — Send a single personalised email to yourself before launching; choose which recipient's data to use for variable substitution; subject is prefixed with `[TEST]`
 - **Duplicate detection** — Warns immediately when a CSV contains duplicate email addresses; one-click deduplication keeps the first occurrence of each address
 - **Named campaigns** — Save, reload, and delete campaigns by name; all compose state and CSV data are stored in `localStorage`
@@ -106,7 +107,7 @@ SendGrid's free tier allows ~100 emails/day. Paid tiers support much higher volu
 ## Files
 
 ```
-sendgrid-mailer.html   — the entire application (HTML + CSS + JS, ~1600 lines)
+sendgrid-mailer.html   — the entire application (HTML + CSS + JS, ~1750 lines)
 ```
 
 ---
