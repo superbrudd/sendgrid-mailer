@@ -530,6 +530,59 @@
     color: var(--text-muted);
     font-size: 13px;
   }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    width: 420px;
+    max-width: calc(100vw - 32px);
+    overflow: hidden;
+  }
+
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 700; font-size: 15px;
+  }
+
+  .modal-body { padding: 20px; }
+
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 8px;
+    background: #fafbfc;
+  }
+
+  .modal-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: 18px; line-height: 1;
+    padding: 2px 4px; border-radius: 4px;
+  }
+  .modal-close:hover { color: var(--text); background: var(--bg); }
+
+  /* Duplicate warning chip */
+  .dupe-warning {
+    display: flex; align-items: center; gap: 8px;
+    background: #fef9ec; border: 1px solid #f5c842;
+    border-radius: 6px; padding: 8px 12px;
+    font-size: 12px; color: #7a5c00;
+    margin-top: 8px;
+  }
+
+  .dupe-warning button {
+    margin-left: auto; white-space: nowrap;
+  }
 </style>
 </head>
 <body>
@@ -590,6 +643,7 @@
         <input type="file" id="csv-input" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
 
         <div id="csv-error" class="alert alert-danger hidden mt-8"></div>
+        <div id="dupe-warning" class="dupe-warning hidden"></div>
 
         <div id="recipient-table-wrap" class="hidden">
           <div class="recipient-table-wrap">
@@ -721,6 +775,13 @@
         </div>
       </div>
 
+      <div style="margin-bottom:14px;">
+        <button class="btn btn-secondary btn-sm" onclick="openTestModal()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Send a test email before launching…
+        </button>
+      </div>
+
       <div class="progress-bar-wrap hidden" id="progress-wrap">
         <div class="progress-bar" id="progress-bar"></div>
       </div>
@@ -762,11 +823,47 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         Send Campaign
       </button>
+      <button class="btn btn-secondary" id="test-send-open-btn" onclick="openTestModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Test Send
+      </button>
       <button class="btn btn-secondary hidden" id="stop-btn" onclick="stopSend()">Stop</button>
       <span id="footer-status" class="text-muted"></span>
     </div>
   </div>
 
+</div>
+
+<!-- Test Send Modal -->
+<div class="modal-backdrop hidden" id="test-send-modal" onclick="if(event.target===this) closeTestModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Test Send</span>
+      <button class="modal-close" onclick="closeTestModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info" style="margin-bottom:14px; font-size:13px;">
+        Sends one personalised email to the address below. The email body and subject will be populated using the selected recipient row's data.
+      </div>
+      <div class="field-group">
+        <label>Send test to</label>
+        <input type="email" id="test-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter') runTestSend()">
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <label>Personalise using data from</label>
+        <select id="test-recipient-select">
+          <option value="-1">— no recipient data (variables left as-is) —</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeTestModal()">Cancel</button>
+      <button class="btn btn-primary" id="test-send-btn" onclick="runTestSend()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send Test
+      </button>
+    </div>
+  </div>
 </div>
 
 <div id="toast-container"></div>
@@ -886,6 +983,7 @@ function parseCSV(file) {
       currentCampaignCsvText = text;
       hideCsvError();
       renderRecipientTable();
+      checkDuplicates();
       updateVarChips();
       updatePreviewSelect();
       updateSendSummary();
@@ -1261,6 +1359,112 @@ function downloadCSV(filename, content) {
   a.click();
 }
 
+// ─── Test Send ────────────────────────────────────────────────────────────────
+function openTestModal() {
+  const sel = document.getElementById('test-recipient-select');
+  sel.innerHTML = '<option value="-1">— no recipient data (variables left as-is) —</option>' +
+    recipients.map((r, i) => `<option value="${i}">${esc(r.name || r.email)} &lt;${esc(r.email)}&gt;</option>`).join('');
+
+  // Pre-fill test address from config from-email as a convenience default
+  const testEmail = document.getElementById('test-email');
+  if (!testEmail.value) testEmail.value = document.getElementById('from-email').value || '';
+
+  document.getElementById('test-send-modal').classList.remove('hidden');
+  setTimeout(() => testEmail.focus(), 50);
+}
+
+function closeTestModal() {
+  document.getElementById('test-send-modal').classList.add('hidden');
+}
+
+async function runTestSend() {
+  const apiKey    = document.getElementById('api-key').value.trim();
+  const fromEmail = document.getElementById('from-email').value.trim();
+  const fromName  = document.getElementById('from-name').value.trim();
+  const subject   = document.getElementById('subject').value.trim();
+  const htmlBody  = quill.root.innerHTML;
+  const testEmail = document.getElementById('test-email').value.trim();
+  const recipIdx  = parseInt(document.getElementById('test-recipient-select').value, 10);
+
+  if (!apiKey)    { toast('API key is required', 'error'); return; }
+  if (!fromEmail) { toast('From email is required', 'error'); return; }
+  if (!subject)   { toast('Subject line is required', 'error'); return; }
+  if (!testEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+    toast('Enter a valid test email address', 'error'); return;
+  }
+
+  const recipData = recipIdx >= 0 && recipients[recipIdx] ? recipients[recipIdx] : {};
+  const personalSubject = interpolate(subject,   recipData);
+  const personalHtml    = interpolate(htmlBody,  recipData);
+  const personalText    = htmlToText(personalHtml);
+
+  const btn = document.getElementById('test-send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const resp = await sendEmail(apiKey, {
+      from: { email: fromEmail, name: fromName || undefined },
+      to:   { email: testEmail, name: 'Test Recipient' },
+      subject: `[TEST] ${personalSubject}`,
+      html: personalHtml,
+      text: personalText,
+    });
+
+    if (resp.ok) {
+      toast(`Test email sent to ${testEmail}`, 'success');
+      closeTestModal();
+    } else {
+      const body = await resp.json().catch(() => ({}));
+      const msg  = (body.errors && body.errors[0] && body.errors[0].message) || `HTTP ${resp.status}`;
+      toast(`Test send failed: ${msg}`, 'error');
+    }
+  } catch (err) {
+    toast(`Test send failed: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send Test';
+  }
+}
+
+// ─── Duplicate detection ──────────────────────────────────────────────────────
+function checkDuplicates() {
+  const seen = new Set();
+  const dupes = new Set();
+  for (const r of recipients) {
+    const e = r.email.toLowerCase();
+    if (seen.has(e)) dupes.add(e);
+    else seen.add(e);
+  }
+
+  const el = document.getElementById('dupe-warning');
+  if (dupes.size === 0) { el.classList.add('hidden'); return; }
+
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span>${dupes.size} duplicate email address${dupes.size > 1 ? 'es' : ''} found — ${recipients.length - seen.size} extra row${recipients.length - seen.size > 1 ? 's' : ''} will send duplicate emails.</span>
+    <button class="btn btn-secondary btn-sm" onclick="deduplicateRecipients()">Deduplicate</button>
+  `;
+}
+
+function deduplicateRecipients() {
+  const seen = new Set();
+  const before = recipients.length;
+  recipients = recipients.filter(r => {
+    const e = r.email.toLowerCase();
+    if (seen.has(e)) return false;
+    seen.add(e); return true;
+  });
+  const removed = before - recipients.length;
+  document.getElementById('dupe-warning').classList.add('hidden');
+  renderRecipientTable();
+  updatePreviewSelect();
+  updateSendSummary();
+  scheduleDraft();
+  toast(`Removed ${removed} duplicate${removed !== 1 ? 's' : ''} — ${recipients.length} recipients remain`, 'success');
+}
+
 // ─── Auto-draft ───────────────────────────────────────────────────────────────
 function scheduleDraft() {
   clearTimeout(draftTimer);
@@ -1294,6 +1498,7 @@ function loadDraft() {
           csvColumns = result.columns;
           recipients = result.rows.filter(r => r.email && r.email.trim());
           renderRecipientTable();
+          checkDuplicates();
           updateVarChips();
           updatePreviewSelect();
           updateSendSummary();
@@ -1368,6 +1573,7 @@ function loadCampaign(id) {
         recipients = result.rows.filter(r => r.email && r.email.trim());
         hideCsvError();
         renderRecipientTable();
+        checkDuplicates();
         updateVarChips();
         updatePreviewSelect();
       }
