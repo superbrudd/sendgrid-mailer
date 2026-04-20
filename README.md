@@ -10,8 +10,10 @@ A self-contained, single-file web app for sending personalised bulk email campai
 - **CSV recipient upload** — Drag & drop or browse for a CSV; every column header automatically becomes a template variable
 - **Personalisation** — Use `{{variable}}` placeholders in the subject and body; click any chip to insert at cursor
 - **Live preview** — See exactly how each recipient's personalised email will look before sending
+- **Named campaigns** — Save, reload, and delete campaigns by name; all compose state and CSV data are stored in `localStorage`
+- **Auto-draft** — Subject, body, and CSV are silently saved as you type; reloading the page restores exactly where you left off
+- **Send history** — Every completed campaign send is logged with per-recipient status, expandable detail view, and CSV export
 - **Batch sending** — Configurable batch size and inter-batch delay to respect SendGrid rate limits
-- **Send log** — Per-recipient status (sent / failed + error message), exportable as CSV
 - **LocalStorage config** — API key, from-name and from-email persist across sessions
 
 ---
@@ -55,6 +57,31 @@ All available variables are shown as clickable chips above the subject and body 
 
 ---
 
+## Campaigns
+
+The **Campaigns** panel on the left lets you save the full state of a campaign — subject, body, from details, send settings, and the recipient CSV — under a custom name.
+
+- **Save** — enter a name and click Save (or press Enter)
+- **Load** — click any saved campaign to restore everything instantly
+- **Delete** — use the bin icon next to a campaign
+- **New / Clear** — resets the composer to a blank state
+
+Campaigns are stored in `localStorage` and persist indefinitely.
+
+---
+
+## Send History
+
+The **History** tab records every completed send with:
+
+- Campaign name and subject
+- Date and time sent
+- Sent / failed counts
+- Per-recipient status (expandable)
+- Export to CSV per send
+
+---
+
 ## Send Settings
 
 | Setting | Description |
@@ -77,7 +104,7 @@ SendGrid's free tier allows ~100 emails/day. Paid tiers support much higher volu
 ## Files
 
 ```
-sendgrid-mailer.html   — the entire application (HTML + CSS + JS, ~900 lines)
+sendgrid-mailer.html   — the entire application (HTML + CSS + JS, ~1350 lines)
 ```
 
 ---
