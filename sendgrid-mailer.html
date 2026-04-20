@@ -1327,7 +1327,7 @@ async function startSend() {
 
     const r = recipients[i];
     const personalSubject = interpolate(subject, r);
-    const personalHtml    = interpolate(htmlBody, r);
+    const personalHtml    = normaliseEmailHtml(interpolate(htmlBody, r));
     const personalText    = htmlToText(personalHtml);
 
     let status = 'sending';
@@ -1613,8 +1613,8 @@ async function runTestSend() {
   }
 
   const recipData = recipIdx >= 0 && recipients[recipIdx] ? recipients[recipIdx] : {};
-  const personalSubject = interpolate(subject,   recipData);
-  const personalHtml    = interpolate(htmlBody,  recipData);
+  const personalSubject = interpolate(subject,  recipData);
+  const personalHtml    = normaliseEmailHtml(interpolate(htmlBody, recipData));
   const personalText    = htmlToText(personalHtml);
 
   const btn = document.getElementById('test-send-btn');
@@ -2061,6 +2061,23 @@ function htmlToText(html) {
   const d = document.createElement('div');
   d.innerHTML = html;
   return d.innerText || d.textContent || '';
+}
+
+function normaliseEmailHtml(html) {
+  // Quill renders <p> with margin:0 but Outlook applies its own p margins,
+  // causing wider line spacing than the editor shows. Inlining margin:0 on
+  // every block element ensures Outlook matches the editor exactly.
+  const d = document.createElement('div');
+  d.innerHTML = html;
+
+  d.querySelectorAll('p, h1, h2, h3, h4, h5, h6').forEach(el => {
+    el.style.margin  = el.style.margin  || '0';
+    el.style.padding = el.style.padding || '0';
+  });
+
+  // Wrap in a container that sets a consistent baseline font so Outlook
+  // doesn't substitute its own defaults.
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#222222;">${d.innerHTML}</div>`;
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
