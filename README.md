@@ -24,13 +24,21 @@ A self-contained, single-file web app for sending personalised bulk email campai
 
 ## Getting Started
 
-1. Open `sendgrid-mailer.html` in a browser (no server required)
-2. Enter your **SendGrid API key** in the left panel and click *Save to localStorage*
-3. Set your **From Email** and **From Name** (the sending domain must be verified in SendGrid)
-4. Upload a **CSV** of recipients
-5. Compose your email in the **Compose** tab
-6. Preview personalisation in the **Preview** tab
-7. Review the summary and click **Send Campaign**
+> **Important:** Browsers block API calls from files opened directly (`file://`). You must run the included local server.
+
+1. Start the local server:
+   ```bash
+   python mailer_server.py
+   ```
+2. Open **http://localhost:8766** in your browser
+3. Enter your **SendGrid API key** in the left panel and click *Save to localStorage*
+4. Set your **From Email** and **From Name** (the sending domain must be verified in SendGrid)
+5. Upload a **CSV** of recipients
+6. Compose your email in the **Compose** tab
+7. Preview personalisation in the **Preview** tab
+8. Review the summary and click **Send Campaign**
+
+The server has no dependencies beyond Python's standard library — no `pip install` needed.
 
 ---
 
@@ -121,7 +129,8 @@ SendGrid's free tier allows ~100 emails/day. Paid tiers support much higher volu
 ## Files
 
 ```
-sendgrid-mailer.html   — the entire application (HTML + CSS + JS, ~1850 lines)
+sendgrid-mailer.html   — the entire application (HTML + CSS + JS, ~1860 lines)
+mailer_server.py       — local Python proxy server (stdlib only, no pip installs)
 ```
 
 ---

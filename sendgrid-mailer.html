@@ -624,6 +624,13 @@
 </head>
 <body>
 
+<div id="file-protocol-banner" style="display:none; background:#7a5c00; color:#fff; font-size:13px; padding:10px 20px; text-align:center;">
+  ⚠ You're opening this file directly (<code style="background:rgba(255,255,255,0.15); padding:1px 5px; border-radius:3px;">file://</code>).
+  Browsers block API calls from local files — sending will fail.
+  Run <code style="background:rgba(255,255,255,0.15); padding:1px 5px; border-radius:3px;">python mailer_server.py</code> and open
+  <a href="http://localhost:8766" style="color:#ffe082; font-weight:700;">http://localhost:8766</a> instead.
+</div>
+
 <header>
   <div class="logo">SG</div>
   <h1>SendGrid Bulk Mailer</h1>
@@ -949,6 +956,13 @@
 <div id="toast-container"></div>
 
 <script>
+// ─── Endpoint ────────────────────────────────────────────────────────────────
+// When served via mailer_server.py (localhost) use the local proxy so the
+// browser isn't blocked by CORS. When opened as file:// the proxy is also
+// at localhost:8766 — direct API calls from file:// are blocked by browsers.
+const IS_LOCAL_SERVER = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const SEND_URL = IS_LOCAL_SERVER ? `${window.location.origin}/send` : 'https://api.sendgrid.com/v3/mail/send';
+
 // ─── State ───────────────────────────────────────────────────────────────────
 let recipients = [];
 let csvColumns = [];
@@ -989,6 +1003,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-save draft on every edit
   quill.on('text-change', scheduleDraft);
   document.getElementById('subject').addEventListener('input', scheduleDraft);
+
+  if (window.location.protocol === 'file:') {
+    document.getElementById('file-protocol-banner').style.display = '';
+  }
 
   loadConfig();
   loadDraft();
@@ -1399,7 +1417,7 @@ async function sendEmail(apiKey, { from, to, subject, html, text, attachments: a
       disposition: 'attachment',
     }));
   }
-  return fetch('https://api.sendgrid.com/v3/mail/send', {
+  return fetch(SEND_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
