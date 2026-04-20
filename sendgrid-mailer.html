@@ -442,6 +442,94 @@
   .rate-row > div { flex: 1; }
 
   .inline-flex { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* Campaign list */
+  .campaign-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+    background: white;
+  }
+
+  .campaign-item:hover { background: #f7f9fb; }
+
+  .campaign-item.active {
+    border-color: var(--green);
+    background: #eef7eb;
+  }
+
+  .campaign-item-info { flex: 1; min-width: 0; }
+
+  .campaign-item-name {
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .campaign-item-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  .campaign-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+  /* History entries */
+  .history-entry {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+
+  .history-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #fafbfc;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .history-entry-header:hover { background: #f2f4f6; }
+
+  .history-entry-body {
+    border-top: 1px solid var(--border);
+    padding: 12px 14px;
+    display: none;
+  }
+
+  .history-entry-body.open { display: block; }
+
+  .history-stat { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+
+  .pill {
+    display: inline-block;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .pill-success { background: #eafaf1; color: #1a6b3a; }
+  .pill-danger  { background: #fdedec; color: #7b241c; }
+  .pill-warning { background: #fef9ec; color: #7a5c00; }
+
+  #history-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
 </style>
 </head>
 <body>
@@ -518,6 +606,23 @@
       </div>
     </div>
 
+    <!-- Campaigns -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Campaigns
+        <span class="badge" id="campaign-count">0</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <input type="text" id="campaign-name" placeholder="Campaign name…" style="flex:1;" onkeydown="if(event.key==='Enter') saveCampaign()">
+          <button class="btn btn-primary btn-sm" onclick="saveCampaign()">Save</button>
+        </div>
+        <div id="campaign-list"></div>
+        <button class="btn btn-secondary btn-sm" onclick="newCampaign()" style="width:100%; margin-top:6px;">+ New / Clear</button>
+      </div>
+    </div>
+
     <!-- Send Settings -->
     <div class="panel">
       <div class="panel-header">
@@ -548,6 +653,7 @@
       <div class="tab active" data-tab="compose" onclick="switchTab('compose')">Compose</div>
       <div class="tab" data-tab="preview" onclick="switchTab('preview')">Preview</div>
       <div class="tab" data-tab="send" onclick="switchTab('send')">Send</div>
+      <div class="tab" data-tab="history" onclick="switchTab('history')">History</div>
     </div>
 
     <!-- COMPOSE TAB -->
@@ -642,6 +748,15 @@
       </div>
     </div>
 
+    <!-- HISTORY TAB -->
+    <div class="tab-pane" id="tab-history">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <span style="font-size:13px; color:var(--text-muted);">All past campaign sends, newest first.</span>
+        <button class="btn btn-secondary btn-sm" onclick="clearHistory()" style="color:var(--danger);">Clear All History</button>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
     <div class="send-footer" style="margin-top:auto;">
       <button class="btn btn-primary" id="send-btn" onclick="startSend()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -665,6 +780,9 @@ let sendRunning = false;
 let sendStopped = false;
 let sendLog = [];
 let lastCursorIndex = 0;
+let currentCampaignId = null;
+let currentCampaignCsvText = '';
+let draftTimer = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -690,7 +808,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (range) lastCursorIndex = range.index;
   });
 
+  // Auto-save draft on every edit
+  quill.on('text-change', scheduleDraft);
+  document.getElementById('subject').addEventListener('input', scheduleDraft);
+
   loadConfig();
+  loadDraft();
+  renderCampaignList();
+  renderHistoryTab();
   updateSendSummary();
 });
 
@@ -758,11 +883,13 @@ function parseCSV(file) {
         showCsvError('No valid rows found (need at least an email address).');
         return;
       }
+      currentCampaignCsvText = text;
       hideCsvError();
       renderRecipientTable();
       updateVarChips();
       updatePreviewSelect();
       updateSendSummary();
+      scheduleDraft();
       toast(`Loaded ${recipients.length} recipients`, 'success');
     } catch (err) {
       showCsvError('Failed to parse CSV: ' + err.message);
@@ -818,11 +945,13 @@ function hideCsvError() {
 function clearRecipients() {
   recipients = [];
   csvColumns = [];
+  currentCampaignCsvText = '';
   document.getElementById('recipient-table-wrap').classList.add('hidden');
   document.getElementById('recipient-count').textContent = '0';
   updateVarChips();
   updatePreviewSelect();
   updateSendSummary();
+  scheduleDraft();
 }
 
 function renderRecipientTable() {
@@ -926,6 +1055,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   if (name === 'preview') renderPreview();
   if (name === 'send') updateSendSummary();
+  if (name === 'history') renderHistoryTab();
 }
 
 // ─── Send summary ─────────────────────────────────────────────────────────────
@@ -1050,6 +1180,15 @@ async function startSend() {
   const stoppedMsg = sendStopped ? ' (stopped early)' : '';
   document.getElementById('footer-status').textContent = `Done${stoppedMsg}: ${sent} sent, ${failed} failed`;
   toast(`Campaign complete: ${sent} sent, ${failed} failed${stoppedMsg}`, failed > 0 ? 'warning' : 'success');
+
+  saveSendHistory({
+    campaignName: document.getElementById('campaign-name').value.trim() || 'Unnamed campaign',
+    subject: document.getElementById('subject').value.trim(),
+    totalRecipients: recipients.length,
+    sent, failed,
+    stopped: sendStopped,
+    log: sendLog.map(r => ({ ...r })),
+  });
 }
 
 function stopSend() {
@@ -1120,6 +1259,287 @@ function downloadCSV(filename, content) {
   a.href = URL.createObjectURL(new Blob([content], { type: 'text/csv' }));
   a.download = filename;
   a.click();
+}
+
+// ─── Auto-draft ───────────────────────────────────────────────────────────────
+function scheduleDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(persistDraft, 800);
+}
+
+function persistDraft() {
+  try {
+    localStorage.setItem('sg_draft', JSON.stringify({
+      subject: document.getElementById('subject').value,
+      bodyHtml: quill ? quill.root.innerHTML : '',
+      csvText: currentCampaignCsvText,
+      campaignId: currentCampaignId,
+      campaignName: document.getElementById('campaign-name').value,
+    }));
+  } catch (_) {}
+}
+
+function loadDraft() {
+  try {
+    const d = JSON.parse(localStorage.getItem('sg_draft') || '{}');
+    if (d.subject) document.getElementById('subject').value = d.subject;
+    if (d.bodyHtml && quill) quill.root.innerHTML = d.bodyHtml;
+    if (d.campaignName) document.getElementById('campaign-name').value = d.campaignName;
+    if (d.campaignId) currentCampaignId = d.campaignId;
+    if (d.csvText) {
+      try {
+        const result = parseCSVText(d.csvText);
+        if (result.columns.includes('email')) {
+          currentCampaignCsvText = d.csvText;
+          csvColumns = result.columns;
+          recipients = result.rows.filter(r => r.email && r.email.trim());
+          renderRecipientTable();
+          updateVarChips();
+          updatePreviewSelect();
+          updateSendSummary();
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+function getCampaigns() {
+  try { return JSON.parse(localStorage.getItem('sg_campaigns') || '[]'); } catch (_) { return []; }
+}
+
+function setCampaigns(list) {
+  try { localStorage.setItem('sg_campaigns', JSON.stringify(list)); } catch (e) {
+    toast('Storage full — could not save campaign', 'error');
+  }
+}
+
+function saveCampaign() {
+  const name = document.getElementById('campaign-name').value.trim();
+  if (!name) { toast('Enter a campaign name first', 'warning'); document.getElementById('campaign-name').focus(); return; }
+
+  const campaigns = getCampaigns();
+  const now = new Date().toISOString();
+  const campaign = {
+    id: currentCampaignId || Date.now(),
+    name,
+    createdAt: currentCampaignId ? (campaigns.find(c => c.id === currentCampaignId) || {}).createdAt || now : now,
+    updatedAt: now,
+    subject: document.getElementById('subject').value,
+    bodyHtml: quill.root.innerHTML,
+    fromEmail: document.getElementById('from-email').value,
+    fromName: document.getElementById('from-name').value,
+    batchSize: parseInt(document.getElementById('batch-size').value, 10) || 10,
+    batchDelay: parseInt(document.getElementById('batch-delay').value, 10) || 500,
+    csvText: currentCampaignCsvText,
+    recipientCount: recipients.length,
+  };
+
+  const idx = campaigns.findIndex(c => c.id === campaign.id);
+  if (idx >= 0) campaigns[idx] = campaign;
+  else campaigns.unshift(campaign);
+
+  setCampaigns(campaigns);
+  currentCampaignId = campaign.id;
+  renderCampaignList();
+  toast(`Campaign "${name}" saved`, 'success');
+  persistDraft();
+}
+
+function loadCampaign(id) {
+  const campaign = getCampaigns().find(c => c.id === id);
+  if (!campaign) return;
+
+  currentCampaignId = campaign.id;
+  document.getElementById('campaign-name').value = campaign.name;
+  document.getElementById('subject').value = campaign.subject || '';
+  quill.root.innerHTML = campaign.bodyHtml || '';
+  if (campaign.fromEmail) document.getElementById('from-email').value = campaign.fromEmail;
+  if (campaign.fromName)  document.getElementById('from-name').value = campaign.fromName;
+  document.getElementById('batch-size').value = campaign.batchSize || 10;
+  document.getElementById('batch-delay').value = campaign.batchDelay || 500;
+
+  if (campaign.csvText) {
+    try {
+      const result = parseCSVText(campaign.csvText);
+      if (result.columns.includes('email')) {
+        currentCampaignCsvText = campaign.csvText;
+        csvColumns = result.columns;
+        recipients = result.rows.filter(r => r.email && r.email.trim());
+        hideCsvError();
+        renderRecipientTable();
+        updateVarChips();
+        updatePreviewSelect();
+      }
+    } catch (_) {
+      clearRecipients();
+    }
+  } else {
+    clearRecipients();
+  }
+
+  updateSendSummary();
+  renderCampaignList();
+  switchTab('compose');
+  toast(`Loaded "${campaign.name}"`, 'success');
+  persistDraft();
+}
+
+function deleteCampaign(id) {
+  const campaigns = getCampaigns();
+  const c = campaigns.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`Delete campaign "${c.name}"?`)) return;
+  setCampaigns(campaigns.filter(x => x.id !== id));
+  if (currentCampaignId === id) { currentCampaignId = null; persistDraft(); }
+  renderCampaignList();
+  toast(`Campaign "${c.name}" deleted`, 'success');
+}
+
+function newCampaign() {
+  currentCampaignId = null;
+  currentCampaignCsvText = '';
+  document.getElementById('campaign-name').value = '';
+  document.getElementById('subject').value = '';
+  quill.root.innerHTML = '';
+  clearRecipients();
+  renderCampaignList();
+  switchTab('compose');
+  persistDraft();
+}
+
+function renderCampaignList() {
+  const campaigns = getCampaigns();
+  const container = document.getElementById('campaign-list');
+  document.getElementById('campaign-count').textContent = campaigns.length;
+
+  if (campaigns.length === 0) {
+    container.innerHTML = '<div class="text-muted" style="text-align:center; padding:16px 0; font-size:12px;">No saved campaigns yet.</div>';
+    return;
+  }
+
+  container.innerHTML = campaigns.map(c => `
+    <div class="campaign-item ${c.id === currentCampaignId ? 'active' : ''}" onclick="loadCampaign(${c.id})">
+      <div class="campaign-item-info">
+        <div class="campaign-item-name">${esc(c.name)}</div>
+        <div class="campaign-item-meta">${c.recipientCount || 0} recipients · ${fmtDate(c.updatedAt)}</div>
+      </div>
+      <div class="campaign-item-actions">
+        <button class="btn btn-secondary btn-sm btn-icon" title="Delete" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); deleteCampaign(${c.id})">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Send history ─────────────────────────────────────────────────────────────
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem('sg_send_history') || '[]'); } catch (_) { return []; }
+}
+
+function saveSendHistory(entry) {
+  const history = getHistory();
+  history.unshift({ id: Date.now(), sentAt: new Date().toISOString(), ...entry });
+  try { localStorage.setItem('sg_send_history', JSON.stringify(history)); } catch (_) {
+    // If storage full, trim oldest entries and retry
+    history.splice(20);
+    try { localStorage.setItem('sg_send_history', JSON.stringify(history)); } catch (_) {}
+  }
+}
+
+function clearHistory() {
+  if (!confirm('Delete all send history? This cannot be undone.')) return;
+  localStorage.removeItem('sg_send_history');
+  renderHistoryTab();
+  toast('History cleared', 'success');
+}
+
+function renderHistoryTab() {
+  const history = getHistory();
+  const container = document.getElementById('history-list');
+  if (!container) return;
+
+  if (history.length === 0) {
+    container.innerHTML = '<div id="history-empty">No sends recorded yet.<br>Campaign results will appear here after sending.</div>';
+    return;
+  }
+
+  container.innerHTML = history.map(entry => {
+    const sentPct = entry.totalRecipients > 0 ? Math.round(entry.sent / entry.totalRecipients * 100) : 0;
+    const statusPill = entry.failed === 0
+      ? `<span class="pill pill-success">${entry.sent} sent</span>`
+      : entry.sent === 0
+        ? `<span class="pill pill-danger">${entry.failed} failed</span>`
+        : `<span class="pill pill-warning">${entry.sent} sent · ${entry.failed} failed</span>`;
+
+    const logRows = (entry.log || []).map(r =>
+      `<tr>
+        <td style="padding:5px 8px"><span class="status-dot ${r._status === 'sent' ? 'sent' : 'failed'}"></span> ${esc(r._status || '')}</td>
+        <td style="padding:5px 8px">${esc(r.email || '')}</td>
+        <td style="padding:5px 8px">${esc(r.name || '')}</td>
+       </tr>`
+    ).join('');
+
+    return `
+    <div class="history-entry">
+      <div class="history-entry-header" onclick="toggleHistory(${entry.id})">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(entry.campaignName)}</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${fmtDateTime(entry.sentAt)} · ${esc(entry.subject || '')}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+          ${statusPill}
+          ${entry.stopped ? '<span class="pill pill-warning">stopped</span>' : ''}
+          <button class="btn btn-secondary btn-sm" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); exportHistoryEntry(${entry.id})">Export CSV</button>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" id="hist-chevron-${entry.id}" style="transition:transform 0.2s; flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="history-entry-body" id="hist-body-${entry.id}">
+        <div class="recipient-table-wrap" style="max-height:220px;">
+          <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead><tr>
+              <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:6px 8px; text-align:left; color:var(--text-muted);">Status</th>
+              <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:6px 8px; text-align:left; color:var(--text-muted);">Email</th>
+              <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:6px 8px; text-align:left; color:var(--text-muted);">Name</th>
+            </tr></thead>
+            <tbody>${logRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleHistory(id) {
+  const body = document.getElementById(`hist-body-${id}`);
+  const chevron = document.getElementById(`hist-chevron-${id}`);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function exportHistoryEntry(id) {
+  const entry = getHistory().find(e => e.id === id);
+  if (!entry || !entry.log || entry.log.length === 0) { toast('No log data', 'warning'); return; }
+  const allKeys = [...new Set(entry.log.flatMap(r => Object.keys(r)))];
+  const cols = allKeys.filter(k => k !== '_status').concat(['_status']);
+  const header = cols.join(',');
+  const rows = entry.log.map(r => cols.map(c => csvEscapeVal(r[c] || '')).join(','));
+  downloadCSV(`send_log_${entry.id}.csv`, [header, ...rows].join('\n'));
+}
+
+// ─── Date formatting ──────────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
