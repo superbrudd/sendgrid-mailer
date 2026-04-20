@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SendGrid Bulk Mailer</title>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #5bab44;
+    --green-dark: #3d8c2f;
+    --blue: #2979b8;
+    --bg: #f2f4f6;
+    --surface: #ffffff;
+    --border: #dde1e7;
+    --text: #1d2b3a;
+    --text-muted: #6b7280;
+    --danger: #c0392b;
+    --warning: #e67e22;
+    --success: #27ae60;
+  }
+
+  body {
+    font-family: 'Open Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 56px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  header .logo {
+    width: 32px;
+    height: 32px;
+    background: var(--green);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 16px;
+  }
+
+  header h1 { font-size: 18px; font-weight: 700; }
+  header span { color: var(--text-muted); font-size: 14px; margin-left: auto; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fafbfc;
+  }
+
+  .panel-header .badge {
+    margin-left: auto;
+    background: var(--green);
+    color: white;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .panel-body { padding: 18px; }
+
+  .field-group { margin-bottom: 16px; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea, select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+    background: white;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(91, 171, 68, 0.12);
+  }
+
+  .api-key-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .api-key-row input { flex: 1; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: var(--green);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--green-dark); }
+  .btn-primary:disabled { background: #a8d99d; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: white;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--bg); }
+
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+  }
+  .btn-danger:hover { background: #a93226; }
+
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  .btn-icon { padding: 7px; }
+
+  /* CSV upload */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--green);
+    background: rgba(91, 171, 68, 0.04);
+    color: var(--green);
+  }
+
+  .drop-zone svg { display: block; margin: 0 auto 8px; opacity: 0.5; }
+
+  /* Recipient table */
+  .recipient-table-wrap {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-top: 12px;
+  }
+
+  .recipient-table-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .recipient-table-wrap th {
+    background: #fafbfc;
+    border-bottom: 1px solid var(--border);
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    position: sticky;
+    top: 0;
+  }
+
+  .recipient-table-wrap td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #f0f2f4;
+  }
+
+  .recipient-table-wrap tr:last-child td { border-bottom: none; }
+  .recipient-table-wrap tr:hover td { background: #f7f9fb; }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  .status-dot.sending { background: var(--warning); animation: pulse 1s infinite; }
+  .status-dot.sent { background: var(--success); }
+  .status-dot.failed { background: var(--danger); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Variables help */
+  .var-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .var-chip {
+    background: #eef7eb;
+    color: var(--green-dark);
+    border: 1px solid #c8e8be;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: monospace;
+    cursor: pointer;
+    transition: background 0.1s;
+    user-select: none;
+  }
+
+  .var-chip:hover { background: #d4efcc; }
+
+  /* Editor area */
+  .editor-wrap {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .editor-wrap .ql-toolbar {
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: #fafbfc;
+  }
+
+  .editor-wrap .ql-container {
+    border: none;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 14px;
+    min-height: 280px;
+  }
+
+  .editor-wrap .ql-editor { min-height: 280px; }
+
+  /* Preview */
+  #preview-panel {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 200px;
+    max-height: 380px;
+    overflow-y: auto;
+  }
+
+  .preview-select-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .preview-select-row select { max-width: 220px; }
+  .preview-select-row label { margin: 0; }
+
+  /* Progress bar */
+  .progress-bar-wrap {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 12px 0 6px;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--green);
+    border-radius: 3px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  .progress-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
+  /* Send button area */
+  .send-footer {
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fafbfc;
+  }
+
+  .send-footer .btn-primary { font-size: 14px; padding: 10px 24px; }
+
+  /* Alerts */
+  .alert {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .alert-warning { background: #fef9ec; border: 1px solid #f5c842; color: #7a5c00; }
+  .alert-success { background: #eafaf1; border: 1px solid #82e0aa; color: #1a6b3a; }
+  .alert-danger  { background: #fdedec; border: 1px solid #f1948a; color: #7b241c; }
+  .alert-info    { background: #eaf2fb; border: 1px solid #85c1e9; color: #1a4a6b; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 18px;
+  }
+
+  .tab {
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+  }
+
+  .tab.active {
+    color: var(--green);
+    border-bottom-color: var(--green);
+  }
+
+  .tab-pane { display: none; padding: 18px; }
+  .tab-pane.active { display: block; }
+
+  .section-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .section-row > * { flex: 1; }
+
+  /* Toast */
+  #toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 9999;
+  }
+
+  .toast {
+    background: var(--text);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    animation: slideIn 0.2s ease;
+    max-width: 360px;
+  }
+
+  .toast.success { background: var(--success); }
+  .toast.error   { background: var(--danger); }
+  .toast.warning { background: var(--warning); }
+
+  @keyframes slideIn {
+    from { transform: translateX(40px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+
+  .hidden { display: none !important; }
+
+  .text-muted { color: var(--text-muted); font-size: 12px; }
+  .mt-8  { margin-top: 8px; }
+  .mt-12 { margin-top: 12px; }
+
+  .rate-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .rate-row > div { flex: 1; }
+
+  .inline-flex { display: inline-flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SG</div>
+  <h1>SendGrid Bulk Mailer</h1>
+  <span>Personalised email campaigns via SendGrid API</span>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT PANEL: Config + Recipients -->
+  <div style="display:flex; flex-direction:column; gap:20px;">
+
+    <!-- API Config -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        API Configuration
+      </div>
+      <div class="panel-body">
+        <div class="field-group">
+          <label>SendGrid API Key</label>
+          <div class="api-key-row">
+            <input type="password" id="api-key" placeholder="SG.xxxxxxxxxx…" autocomplete="off">
+            <button class="btn btn-secondary btn-sm" onclick="toggleApiKey()">Show</button>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>From Email</label>
+          <input type="email" id="from-email" placeholder="you@yourdomain.com">
+        </div>
+        <div class="field-group">
+          <label>From Name</label>
+          <input type="text" id="from-name" placeholder="Your Name or Company">
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="saveConfig()" style="width:100%">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save to localStorage
+        </button>
+      </div>
+    </div>
+
+    <!-- Recipients -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Recipients
+        <span class="badge" id="recipient-count">0</span>
+      </div>
+      <div class="panel-body">
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-input').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div>Drop CSV here or click to browse</div>
+          <div style="font-size:11px; margin-top:4px">Required columns: <code>email</code>, <code>name</code> — any extras become template variables</div>
+        </div>
+        <input type="file" id="csv-input" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
+
+        <div id="csv-error" class="alert alert-danger hidden mt-8"></div>
+
+        <div id="recipient-table-wrap" class="hidden">
+          <div class="recipient-table-wrap">
+            <table id="recipient-table">
+              <thead id="recipient-thead"></thead>
+              <tbody id="recipient-tbody"></tbody>
+            </table>
+          </div>
+          <div class="mt-8" style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="clearRecipients()">Clear</button>
+            <span class="text-muted" style="align-self:center;" id="col-info"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Send Settings -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Send Settings
+      </div>
+      <div class="panel-body">
+        <div class="rate-row">
+          <div class="field-group" style="margin-bottom:0">
+            <label>Batch Size</label>
+            <input type="number" id="batch-size" value="10" min="1" max="100">
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label>Delay (ms)</label>
+            <input type="number" id="batch-delay" value="500" min="0" max="10000">
+          </div>
+        </div>
+        <div class="text-muted mt-8">Sends in batches with a delay between each to respect rate limits.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL: Compose + Preview + Send -->
+  <div class="panel" style="display:flex; flex-direction:column; min-height: 600px;">
+
+    <div class="tabs">
+      <div class="tab active" data-tab="compose" onclick="switchTab('compose')">Compose</div>
+      <div class="tab" data-tab="preview" onclick="switchTab('preview')">Preview</div>
+      <div class="tab" data-tab="send" onclick="switchTab('send')">Send</div>
+    </div>
+
+    <!-- COMPOSE TAB -->
+    <div class="tab-pane active" id="tab-compose">
+      <div class="field-group">
+        <label>Subject Line</label>
+        <input type="text" id="subject" placeholder="e.g. Hi {{name}}, here's your update!">
+        <div class="var-chips" id="subject-var-chips" style="margin-top:6px;"></div>
+      </div>
+
+      <div class="field-group">
+        <label>Template Variables
+          <span id="var-source-badge" style="margin-left:8px; font-size:10px; font-weight:600; text-transform:none; letter-spacing:0; background:#eef7eb; color:var(--green-dark); border:1px solid #c8e8be; border-radius:4px; padding:2px 7px; display:none;"></span>
+        </label>
+        <div id="var-empty-state" class="text-muted" style="margin-bottom:6px; font-size:12px;">
+          ⚠ Load a CSV to see available variables. All column headers become <code style="background:#f0f2f4; padding:1px 4px; border-radius:3px;">{{variables}}</code> you can insert.
+        </div>
+        <div id="var-loaded-hint" class="text-muted" style="margin-bottom:6px; font-size:12px; display:none;">
+          Click any variable to insert it at the cursor. Each is replaced with that recipient's value when sending.
+        </div>
+        <div class="var-chips" id="var-chips"></div>
+      </div>
+
+      <div class="field-group">
+        <label>Email Body</label>
+        <div class="editor-wrap">
+          <div id="editor"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIEW TAB -->
+    <div class="tab-pane" id="tab-preview">
+      <div class="preview-select-row">
+        <label style="white-space:nowrap">Preview for:</label>
+        <select id="preview-recipient" onchange="renderPreview()">
+          <option value="">— load recipients first —</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="renderPreview()">Refresh</button>
+      </div>
+
+      <div style="margin-bottom:8px;">
+        <strong style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px">Subject:</strong>
+        <span id="preview-subject" style="font-size:14px; margin-left:8px;"></span>
+      </div>
+
+      <div id="preview-panel">
+        <em style="color:var(--text-muted)">Compose an email and load recipients to see a preview.</em>
+      </div>
+    </div>
+
+    <!-- SEND TAB -->
+    <div class="tab-pane" id="tab-send">
+      <div id="send-alerts"></div>
+
+      <div class="field-group">
+        <label>Summary</label>
+        <div style="background:#fafbfc; border:1px solid var(--border); border-radius:6px; padding:14px; font-size:13px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div><span style="color:var(--text-muted)">Recipients:</span> <strong id="sum-count">0</strong></div>
+            <div><span style="color:var(--text-muted)">From:</span> <strong id="sum-from">—</strong></div>
+            <div><span style="color:var(--text-muted)">Subject:</span> <strong id="sum-subject">—</strong></div>
+            <div><span style="color:var(--text-muted)">API Key:</span> <strong id="sum-key">Not set</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-bar-wrap hidden" id="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="progress-label hidden" id="progress-label"></div>
+
+      <div id="send-log-wrap" class="hidden mt-8">
+        <label>Send Log</label>
+        <div class="recipient-table-wrap" style="max-height:300px;">
+          <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead>
+              <tr>
+                <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; font-weight:600; color:var(--text-muted);">Status</th>
+                <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; font-weight:600; color:var(--text-muted);">Email</th>
+                <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; font-weight:600; color:var(--text-muted);">Name</th>
+                <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; font-weight:600; color:var(--text-muted);">Message</th>
+              </tr>
+            </thead>
+            <tbody id="send-log-body"></tbody>
+          </table>
+        </div>
+        <div class="mt-8" style="display:flex; gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="exportLog()">Export Log CSV</button>
+          <span id="send-stats" class="text-muted" style="align-self:center;"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="send-footer" style="margin-top:auto;">
+      <button class="btn btn-primary" id="send-btn" onclick="startSend()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send Campaign
+      </button>
+      <button class="btn btn-secondary hidden" id="stop-btn" onclick="stopSend()">Stop</button>
+      <span id="footer-status" class="text-muted"></span>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let recipients = [];
+let csvColumns = [];
+let quill;
+let sendRunning = false;
+let sendStopped = false;
+let sendLog = [];
+let lastCursorIndex = 0;
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  quill = new Quill('#editor', {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        [{ 'indent': '-1' }, { 'indent': '+1' }],
+        [{ 'align': [] }],
+        ['link', 'blockquote', 'code-block'],
+        ['clean']
+      ]
+    },
+    placeholder: 'Compose your email here. Use {{variableName}} placeholders to personalise content for each recipient…'
+  });
+
+  // Track cursor so chip clicks can insert at the last known position
+  quill.on('selection-change', (range) => {
+    if (range) lastCursorIndex = range.index;
+  });
+
+  loadConfig();
+  updateSendSummary();
+});
+
+// ─── Config persistence ───────────────────────────────────────────────────────
+function saveConfig() {
+  const data = {
+    apiKey: document.getElementById('api-key').value,
+    fromEmail: document.getElementById('from-email').value,
+    fromName: document.getElementById('from-name').value,
+  };
+  localStorage.setItem('sg_mailer_config', JSON.stringify(data));
+  toast('Config saved to localStorage', 'success');
+}
+
+function loadConfig() {
+  try {
+    const data = JSON.parse(localStorage.getItem('sg_mailer_config') || '{}');
+    if (data.apiKey)    document.getElementById('api-key').value = data.apiKey;
+    if (data.fromEmail) document.getElementById('from-email').value = data.fromEmail;
+    if (data.fromName)  document.getElementById('from-name').value = data.fromName;
+  } catch (_) {}
+}
+
+function toggleApiKey() {
+  const inp = document.getElementById('api-key');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ─── CSV Parsing ──────────────────────────────────────────────────────────────
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.add('drag-over');
+}
+
+function handleDragLeave() {
+  document.getElementById('drop-zone').classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) parseCSV(file);
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) parseCSV(file);
+  e.target.value = '';
+}
+
+function parseCSV(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result;
+      const result = parseCSVText(text);
+      if (!result.columns.includes('email')) {
+        showCsvError('CSV must have an "email" column.');
+        return;
+      }
+      csvColumns = result.columns;
+      recipients = result.rows.filter(r => r.email && r.email.trim());
+      if (recipients.length === 0) {
+        showCsvError('No valid rows found (need at least an email address).');
+        return;
+      }
+      hideCsvError();
+      renderRecipientTable();
+      updateVarChips();
+      updatePreviewSelect();
+      updateSendSummary();
+      toast(`Loaded ${recipients.length} recipients`, 'success');
+    } catch (err) {
+      showCsvError('Failed to parse CSV: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSVText(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  if (lines.length < 2) throw new Error('Need at least a header row and one data row');
+
+  const columns = parseCSVRow(lines[0]).map(c => c.trim().toLowerCase().replace(/\s+/g, '_'));
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCSVRow(lines[i]);
+    const row = {};
+    columns.forEach((col, j) => { row[col] = (vals[j] || '').trim(); });
+    rows.push(row);
+  }
+  return { columns, rows };
+}
+
+function parseCSVRow(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current); current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function showCsvError(msg) {
+  const el = document.getElementById('csv-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function hideCsvError() {
+  document.getElementById('csv-error').classList.add('hidden');
+}
+
+function clearRecipients() {
+  recipients = [];
+  csvColumns = [];
+  document.getElementById('recipient-table-wrap').classList.add('hidden');
+  document.getElementById('recipient-count').textContent = '0';
+  updateVarChips();
+  updatePreviewSelect();
+  updateSendSummary();
+}
+
+function renderRecipientTable() {
+  const wrap = document.getElementById('recipient-table-wrap');
+  wrap.classList.remove('hidden');
+  document.getElementById('recipient-count').textContent = recipients.length;
+
+  const thead = document.getElementById('recipient-thead');
+  const tbody = document.getElementById('recipient-tbody');
+
+  // Show max 6 columns to avoid overflow
+  const displayCols = csvColumns.slice(0, 6);
+  thead.innerHTML = '<tr>' + displayCols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+
+  const MAX_ROWS = 200;
+  tbody.innerHTML = recipients.slice(0, MAX_ROWS).map(r =>
+    '<tr>' + displayCols.map(c => `<td>${esc(r[c] || '')}</td>`).join('') + '</tr>'
+  ).join('');
+
+  document.getElementById('col-info').textContent =
+    `${csvColumns.length} column(s)${recipients.length > MAX_ROWS ? ` · showing first ${MAX_ROWS} of ${recipients.length}` : ''}`;
+}
+
+function updateVarChips() {
+  const container  = document.getElementById('var-chips');
+  const emptyState = document.getElementById('var-empty-state');
+  const loadedHint = document.getElementById('var-loaded-hint');
+  const badge      = document.getElementById('var-source-badge');
+
+  if (csvColumns.length === 0) {
+    container.innerHTML = '';
+    emptyState.style.display = '';
+    loadedHint.style.display = 'none';
+    badge.style.display = 'none';
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  loadedHint.style.display = '';
+  badge.textContent = `${csvColumns.length} column${csvColumns.length !== 1 ? 's' : ''} detected`;
+  badge.style.display = '';
+
+  container.innerHTML = csvColumns.map(c =>
+    `<span class="var-chip" onmousedown="event.preventDefault(); insertVar('{{${c}}}')" title="Insert {{${c}}} into body">{{${c}}}</span>`
+  ).join('');
+
+  const subjectChips = document.getElementById('subject-var-chips');
+  if (subjectChips) {
+    subjectChips.innerHTML = csvColumns.map(c =>
+      `<span class="var-chip" onmousedown="event.preventDefault(); insertSubjectVar('{{${c}}}')" title="Insert {{${c}}} into subject">{{${c}}}</span>`
+    ).join('');
+  }
+}
+
+function insertVar(varStr) {
+  quill.focus();
+  quill.insertText(lastCursorIndex, varStr, 'user');
+  lastCursorIndex += varStr.length;
+  quill.setSelection(lastCursorIndex);
+}
+
+function insertSubjectVar(varStr) {
+  const inp = document.getElementById('subject');
+  const start = inp.selectionStart ?? inp.value.length;
+  const end   = inp.selectionEnd   ?? inp.value.length;
+  inp.value = inp.value.slice(0, start) + varStr + inp.value.slice(end);
+  const pos = start + varStr.length;
+  inp.focus();
+  inp.setSelectionRange(pos, pos);
+}
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+function updatePreviewSelect() {
+  const sel = document.getElementById('preview-recipient');
+  sel.innerHTML = recipients.length === 0
+    ? '<option value="">— load recipients first —</option>'
+    : recipients.map((r, i) => `<option value="${i}">${esc(r.name || r.email)} &lt;${esc(r.email)}&gt;</option>`).join('');
+  renderPreview();
+}
+
+function renderPreview() {
+  const idx = parseInt(document.getElementById('preview-recipient').value, 10);
+  const recipient = isNaN(idx) ? null : recipients[idx];
+  const subject = document.getElementById('subject').value;
+  const html = quill.root.innerHTML;
+
+  document.getElementById('preview-subject').textContent =
+    recipient ? interpolate(subject, recipient) : subject;
+
+  document.getElementById('preview-panel').innerHTML =
+    recipient ? interpolate(html, recipient) : html || '<em style="color:var(--text-muted)">Nothing to preview yet.</em>';
+}
+
+function interpolate(template, vars) {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => esc(vars[key.toLowerCase()] || `{{${key}}}`));
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  if (name === 'preview') renderPreview();
+  if (name === 'send') updateSendSummary();
+}
+
+// ─── Send summary ─────────────────────────────────────────────────────────────
+function updateSendSummary() {
+  document.getElementById('sum-count').textContent = recipients.length;
+  const from = document.getElementById('from-email').value;
+  const name = document.getElementById('from-name').value;
+  document.getElementById('sum-from').textContent = name ? `${name} <${from}>` : (from || '—');
+  document.getElementById('sum-subject').textContent = document.getElementById('subject').value || '—';
+  const key = document.getElementById('api-key').value;
+  document.getElementById('sum-key').textContent = key ? key.slice(0, 8) + '…' : 'Not set';
+}
+
+// ─── Validation ───────────────────────────────────────────────────────────────
+function validate() {
+  const alerts = document.getElementById('send-alerts');
+  alerts.innerHTML = '';
+  const errs = [];
+
+  if (!document.getElementById('api-key').value.trim()) errs.push('SendGrid API key is required.');
+  if (!document.getElementById('from-email').value.trim()) errs.push('From email is required.');
+  if (!document.getElementById('subject').value.trim()) errs.push('Subject line is required.');
+  if (quill.getText().trim().length < 5) errs.push('Email body is too short.');
+  if (recipients.length === 0) errs.push('No recipients loaded. Upload a CSV first.');
+
+  if (errs.length > 0) {
+    alerts.innerHTML = errs.map(e => `<div class="alert alert-danger">⚠ ${e}</div>`).join('');
+    return false;
+  }
+  return true;
+}
+
+// ─── Sending ──────────────────────────────────────────────────────────────────
+async function startSend() {
+  switchTab('send');
+  updateSendSummary();
+
+  if (!validate()) return;
+
+  const confirm = window.confirm(
+    `Send to ${recipients.length} recipient${recipients.length !== 1 ? 's' : ''}?\n\nFrom: ${document.getElementById('from-email').value}\nSubject: ${document.getElementById('subject').value}`
+  );
+  if (!confirm) return;
+
+  sendRunning = true;
+  sendStopped = false;
+  sendLog = [];
+
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('stop-btn').classList.remove('hidden');
+  document.getElementById('progress-wrap').classList.remove('hidden');
+  document.getElementById('progress-label').classList.remove('hidden');
+  document.getElementById('send-log-wrap').classList.remove('hidden');
+  document.getElementById('send-log-body').innerHTML = '';
+
+  const apiKey   = document.getElementById('api-key').value.trim();
+  const fromEmail = document.getElementById('from-email').value.trim();
+  const fromName  = document.getElementById('from-name').value.trim();
+  const subject  = document.getElementById('subject').value.trim();
+  const htmlBody = quill.root.innerHTML;
+  const batchSize = parseInt(document.getElementById('batch-size').value, 10) || 10;
+  const delay    = parseInt(document.getElementById('batch-delay').value, 10) || 500;
+
+  let sent = 0, failed = 0;
+
+  for (let i = 0; i < recipients.length; i++) {
+    if (sendStopped) break;
+
+    const r = recipients[i];
+    const personalSubject = interpolate(subject, r);
+    const personalHtml    = interpolate(htmlBody, r);
+    const personalText    = htmlToText(personalHtml);
+
+    let status = 'sending';
+    addLogRow(i, r, 'sending', '…');
+
+    try {
+      const resp = await sendEmail(apiKey, {
+        from: { email: fromEmail, name: fromName || undefined },
+        to:   { email: r.email, name: r.name || undefined },
+        subject: personalSubject,
+        html: personalHtml,
+        text: personalText,
+      });
+
+      if (resp.ok) {
+        status = 'sent';
+        sent++;
+        updateLogRow(i, 'sent', `${resp.status}`);
+      } else {
+        const body = await resp.json().catch(() => ({}));
+        const msg = (body.errors && body.errors[0] && body.errors[0].message) || `HTTP ${resp.status}`;
+        status = 'failed';
+        failed++;
+        updateLogRow(i, 'failed', msg);
+      }
+    } catch (err) {
+      status = 'failed';
+      failed++;
+      updateLogRow(i, 'failed', err.message);
+    }
+
+    sendLog[i] = { ...r, _status: status };
+
+    // Progress
+    const progress = Math.round(((i + 1) / recipients.length) * 100);
+    document.getElementById('progress-bar').style.width = progress + '%';
+    document.getElementById('progress-label').textContent = `${i + 1} / ${recipients.length} — ${sent} sent, ${failed} failed`;
+    document.getElementById('footer-status').textContent = `Sending… ${i + 1}/${recipients.length}`;
+    document.getElementById('send-stats').textContent = `${sent} sent · ${failed} failed`;
+
+    // Batch delay
+    if ((i + 1) % batchSize === 0 && i + 1 < recipients.length) {
+      await sleep(delay);
+    }
+  }
+
+  sendRunning = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('stop-btn').classList.add('hidden');
+
+  const stoppedMsg = sendStopped ? ' (stopped early)' : '';
+  document.getElementById('footer-status').textContent = `Done${stoppedMsg}: ${sent} sent, ${failed} failed`;
+  toast(`Campaign complete: ${sent} sent, ${failed} failed${stoppedMsg}`, failed > 0 ? 'warning' : 'success');
+}
+
+function stopSend() {
+  sendStopped = true;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('footer-status').textContent = 'Stopping after current email…';
+}
+
+async function sendEmail(apiKey, { from, to, subject, html, text }) {
+  return fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [to] }],
+      from,
+      subject,
+      content: [
+        { type: 'text/plain', value: text },
+        { type: 'text/html',  value: html },
+      ],
+    }),
+  });
+}
+
+// ─── Log table ────────────────────────────────────────────────────────────────
+function addLogRow(idx, r, status, msg) {
+  const tbody = document.getElementById('send-log-body');
+  const tr = document.createElement('tr');
+  tr.id = `log-row-${idx}`;
+  tr.innerHTML = `
+    <td><span class="status-dot ${status}" id="dot-${idx}"></span> <span id="status-text-${idx}">${status}</span></td>
+    <td>${esc(r.email)}</td>
+    <td>${esc(r.name || '')}</td>
+    <td id="log-msg-${idx}">${esc(msg)}</td>
+  `;
+  tbody.appendChild(tr);
+  tr.scrollIntoView({ block: 'nearest' });
+}
+
+function updateLogRow(idx, status, msg) {
+  const dot = document.getElementById(`dot-${idx}`);
+  const txt = document.getElementById(`status-text-${idx}`);
+  const msgEl = document.getElementById(`log-msg-${idx}`);
+  if (dot) { dot.className = 'status-dot ' + status; }
+  if (txt) txt.textContent = status;
+  if (msgEl) msgEl.textContent = msg;
+}
+
+// ─── Export log ───────────────────────────────────────────────────────────────
+function exportLog() {
+  if (sendLog.length === 0) { toast('No log data yet', 'warning'); return; }
+  const cols = [...csvColumns, '_status'];
+  const header = cols.join(',');
+  const rows = sendLog.map(r => cols.map(c => csvEscapeVal(r[c] || '')).join(','));
+  downloadCSV('send_log.csv', [header, ...rows].join('\n'));
+}
+
+function csvEscapeVal(v) {
+  const s = String(v);
+  return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCSV(filename, content) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: 'text/csv' }));
+  a.download = filename;
+  a.click();
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function htmlToText(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return d.innerText || d.textContent || '';
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+</script>
+</body>
+</html>
