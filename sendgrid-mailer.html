@@ -288,6 +288,13 @@
 
   .editor-wrap .ql-editor { min-height: 280px; }
 
+  /* Relabel size picker items to show numbers without "px" */
+  .ql-snow .ql-picker.ql-size .ql-picker-label::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: attr(data-value); }
+  .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="false"]::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="false"]::before  { content: 'Default'; }
+  .ql-snow .ql-picker.ql-size { width: 72px; }
+
   /* Preview */
   #preview-panel {
     background: white;
@@ -664,6 +671,15 @@
           <label>From Name</label>
           <input type="text" id="from-name" placeholder="Your Name or Company">
         </div>
+        <div class="field-group">
+          <label>Reply-To Email <span style="font-weight:400; text-transform:none; letter-spacing:0;">(optional)</span></label>
+          <input type="email" id="reply-to" placeholder="replies@yourdomain.com">
+        </div>
+        <div class="field-group">
+          <label>BCC <span style="font-weight:400; text-transform:none; letter-spacing:0;">(optional — applied to every email)</span></label>
+          <input type="text" id="bcc" placeholder="one@example.com, two@example.com">
+          <div class="text-muted" style="margin-top:4px;">Separate multiple addresses with commas.</div>
+        </div>
         <button class="btn btn-secondary btn-sm" onclick="saveConfig()" style="width:100%">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Save to localStorage
@@ -858,6 +874,8 @@
             <div><span style="color:var(--text-muted)">Subject:</span> <strong id="sum-subject">—</strong></div>
             <div><span style="color:var(--text-muted)">API Key:</span> <strong id="sum-key">Not set</strong></div>
             <div><span style="color:var(--text-muted)">Attachments:</span> <strong id="sum-attachments">None</strong></div>
+            <div><span style="color:var(--text-muted)">Reply-To:</span> <strong id="sum-replyto">—</strong></div>
+            <div><span style="color:var(--text-muted)">BCC:</span> <strong id="sum-bcc">—</strong></div>
           </div>
         </div>
       </div>
@@ -978,11 +996,18 @@ let attachments = []; // [{ filename, type, content (base64), size }]
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Register custom font sizes — renders as inline style="font-size:Xpx"
+  // which is preserved through to email clients including Outlook.
+  const Size = Quill.import('attributors/style/size');
+  Size.whitelist = ['10px','11px','12px','13px','14px','16px','18px','20px','24px','28px','32px','36px','48px'];
+  Quill.register(Size, true);
+
   quill = new Quill('#editor', {
     theme: 'snow',
     modules: {
       toolbar: [
         [{ 'header': [1, 2, 3, false] }],
+        [{ 'size': ['10px','11px','12px','13px','14px','16px','18px','20px','24px','28px','32px','36px','48px', false] }],
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'color': [] }, { 'background': [] }],
         [{ 'list': 'ordered' }, { 'list': 'bullet' }],
@@ -1018,9 +1043,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // ─── Config persistence ───────────────────────────────────────────────────────
 function saveConfig() {
   const data = {
-    apiKey: document.getElementById('api-key').value,
+    apiKey:    document.getElementById('api-key').value,
     fromEmail: document.getElementById('from-email').value,
-    fromName: document.getElementById('from-name').value,
+    fromName:  document.getElementById('from-name').value,
+    replyTo:   document.getElementById('reply-to').value,
+    bcc:       document.getElementById('bcc').value,
   };
   localStorage.setItem('sg_mailer_config', JSON.stringify(data));
   toast('Config saved to localStorage', 'success');
@@ -1029,9 +1056,11 @@ function saveConfig() {
 function loadConfig() {
   try {
     const data = JSON.parse(localStorage.getItem('sg_mailer_config') || '{}');
-    if (data.apiKey)    document.getElementById('api-key').value = data.apiKey;
+    if (data.apiKey)    document.getElementById('api-key').value    = data.apiKey;
     if (data.fromEmail) document.getElementById('from-email').value = data.fromEmail;
-    if (data.fromName)  document.getElementById('from-name').value = data.fromName;
+    if (data.fromName)  document.getElementById('from-name').value  = data.fromName;
+    if (data.replyTo)   document.getElementById('reply-to').value   = data.replyTo;
+    if (data.bcc)       document.getElementById('bcc').value        = data.bcc;
   } catch (_) {}
 }
 
@@ -1268,6 +1297,13 @@ function updateSendSummary() {
   document.getElementById('sum-attachments').textContent = attachments.length === 0
     ? 'None'
     : `${attachments.length} file${attachments.length !== 1 ? 's' : ''} (${fmtBytes(totalSize)})`;
+  const replyTo = document.getElementById('reply-to').value.trim();
+  document.getElementById('sum-replyto').textContent = replyTo || '—';
+  const bccRaw = document.getElementById('bcc').value.trim();
+  const bccList = parseEmailList(bccRaw);
+  document.getElementById('sum-bcc').textContent = bccList.length > 0
+    ? bccList.map(b => b.email).join(', ')
+    : '—';
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -1312,13 +1348,15 @@ async function startSend() {
   document.getElementById('send-log-wrap').classList.remove('hidden');
   document.getElementById('send-log-body').innerHTML = '';
 
-  const apiKey   = document.getElementById('api-key').value.trim();
+  const apiKey    = document.getElementById('api-key').value.trim();
   const fromEmail = document.getElementById('from-email').value.trim();
   const fromName  = document.getElementById('from-name').value.trim();
-  const subject  = document.getElementById('subject').value.trim();
-  const htmlBody = quill.root.innerHTML;
+  const subject   = document.getElementById('subject').value.trim();
+  const htmlBody  = quill.root.innerHTML;
   const batchSize = parseInt(document.getElementById('batch-size').value, 10) || 10;
-  const delay    = parseInt(document.getElementById('batch-delay').value, 10) || 500;
+  const delay     = parseInt(document.getElementById('batch-delay').value, 10) || 500;
+  const replyTo   = parseSingleEmail(document.getElementById('reply-to').value);
+  const bccList   = parseEmailList(document.getElementById('bcc').value);
 
   let sent = 0, failed = 0;
 
@@ -1341,6 +1379,8 @@ async function startSend() {
         html: personalHtml,
         text: personalText,
         attachments,
+        replyTo,
+        bcc: bccList,
       });
 
       if (resp.ok) {
@@ -1399,9 +1439,12 @@ function stopSend() {
   document.getElementById('footer-status').textContent = 'Stopping after current email…';
 }
 
-async function sendEmail(apiKey, { from, to, subject, html, text, attachments: atts }) {
+async function sendEmail(apiKey, { from, to, subject, html, text, attachments: atts, replyTo, bcc }) {
+  const personalization = { to: [to] };
+  if (bcc && bcc.length > 0) personalization.bcc = bcc;
+
   const payload = {
-    personalizations: [{ to: [to] }],
+    personalizations: [personalization],
     from,
     subject,
     content: [
@@ -1409,6 +1452,7 @@ async function sendEmail(apiKey, { from, to, subject, html, text, attachments: a
       { type: 'text/html',  value: html },
     ],
   };
+  if (replyTo) payload.reply_to = replyTo;
   if (atts && atts.length > 0) {
     payload.attachments = atts.map(a => ({
       content:     a.content,
@@ -1572,6 +1616,15 @@ function checkAttSize() {
   }
 }
 
+function parseEmailList(raw) {
+  return raw.split(',').map(s => s.trim()).filter(s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)).map(e => ({ email: e }));
+}
+
+function parseSingleEmail(raw) {
+  const e = raw.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? { email: e } : null;
+}
+
 function fmtBytes(bytes) {
   if (bytes < 1024)        return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -1623,12 +1676,14 @@ async function runTestSend() {
 
   try {
     const resp = await sendEmail(apiKey, {
-      from: { email: fromEmail, name: fromName || undefined },
-      to:   { email: testEmail, name: 'Test Recipient' },
+      from:    { email: fromEmail, name: fromName || undefined },
+      to:      { email: testEmail, name: 'Test Recipient' },
       subject: `[TEST] ${personalSubject}`,
-      html: personalHtml,
-      text: personalText,
+      html:    personalHtml,
+      text:    personalText,
       attachments,
+      replyTo: parseSingleEmail(document.getElementById('reply-to').value),
+      bcc:     parseEmailList(document.getElementById('bcc').value),
     });
 
     if (resp.ok) {
