@@ -714,6 +714,31 @@
       </div>
     </div>
 
+    <!-- Export / Import -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+        Data Export / Import
+      </div>
+      <div class="panel-body">
+        <div class="text-muted" style="margin-bottom:10px; font-size:12px;">
+          Export all campaigns, history &amp; config to a JSON file. Share via SharePoint or any folder to use on another device.
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="exportAllData()" style="width:100%; justify-content:center;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export all data (.json)
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-input').click()" style="width:100%; justify-content:center;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import from .json file
+          </button>
+          <input type="file" id="import-input" accept=".json" class="hidden" onchange="importAllData(event)">
+        </div>
+        <div id="import-result" class="hidden" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
     <!-- Send Settings -->
     <div class="panel">
       <div class="panel-header">
@@ -1910,6 +1935,90 @@ function exportHistoryEntry(id) {
   const header = cols.join(',');
   const rows = entry.log.map(r => cols.map(c => csvEscapeVal(r[c] || '')).join(','));
   downloadCSV(`send_log_${entry.id}.csv`, [header, ...rows].join('\n'));
+}
+
+// ─── Export / Import ─────────────────────────────────────────────────────────
+function exportAllData() {
+  const data = {
+    _version: 1,
+    _exported: new Date().toISOString(),
+    config:   JSON.parse(localStorage.getItem('sg_mailer_config')  || '{}'),
+    campaigns: JSON.parse(localStorage.getItem('sg_campaigns')     || '[]'),
+    history:  JSON.parse(localStorage.getItem('sg_send_history')   || '[]'),
+    draft:    JSON.parse(localStorage.getItem('sg_draft')          || '{}'),
+  };
+
+  const filename = `sg-mailer-export-${new Date().toISOString().slice(0,10)}.json`;
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  toast(`Exported to ${filename}`, 'success');
+}
+
+function importAllData(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const resultEl = document.getElementById('import-result');
+    try {
+      const data = JSON.parse(ev.target.result);
+
+      if (!data._version) throw new Error('Unrecognised file format — not a SendGrid Mailer export.');
+
+      const summary = [];
+
+      if (data.config && typeof data.config === 'object') {
+        localStorage.setItem('sg_mailer_config', JSON.stringify(data.config));
+        loadConfig();
+        summary.push('config');
+      }
+
+      if (Array.isArray(data.campaigns)) {
+        // Merge: keep existing campaigns not present in import (by id), then add imported ones
+        const existing  = getCampaigns();
+        const importIds = new Set(data.campaigns.map(c => c.id));
+        const merged    = [...data.campaigns, ...existing.filter(c => !importIds.has(c.id))];
+        setCampaigns(merged);
+        renderCampaignList();
+        summary.push(`${data.campaigns.length} campaign(s)`);
+      }
+
+      if (Array.isArray(data.history)) {
+        const existing  = getHistory();
+        const importIds = new Set(data.history.map(h => h.id));
+        const merged    = [...data.history, ...existing.filter(h => !importIds.has(h.id))];
+        // Re-sort newest first and cap at 100
+        merged.sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
+        merged.splice(100);
+        localStorage.setItem('sg_send_history', JSON.stringify(merged));
+        summary.push(`${data.history.length} history entry/entries`);
+      }
+
+      if (data.draft && typeof data.draft === 'object' && !localStorage.getItem('sg_draft')) {
+        // Only restore draft if there is no existing draft (avoid overwriting in-progress work)
+        localStorage.setItem('sg_draft', JSON.stringify(data.draft));
+        loadDraft();
+        summary.push('draft');
+      }
+
+      const msg = `Imported: ${summary.join(', ')}`;
+      resultEl.innerHTML = `<div class="alert alert-success">${msg}</div>`;
+      resultEl.classList.remove('hidden');
+      toast(msg, 'success');
+      setTimeout(() => resultEl.classList.add('hidden'), 5000);
+
+    } catch (err) {
+      resultEl.innerHTML = `<div class="alert alert-danger">Import failed: ${esc(err.message)}</div>`;
+      resultEl.classList.remove('hidden');
+      toast('Import failed: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ─── Date formatting ──────────────────────────────────────────────────────────

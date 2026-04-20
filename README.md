@@ -13,6 +13,7 @@ A self-contained, single-file web app for sending personalised bulk email campai
 - **Attachments** — Attach one or more files to every outgoing email; drag & drop or browse; shows a size bar with a 30 MB SendGrid limit warning
 - **Test send** — Send a single personalised email to yourself before launching; choose which recipient's data to use for variable substitution; subject is prefixed with `[TEST]`
 - **Duplicate detection** — Warns immediately when a CSV contains duplicate email addresses; one-click deduplication keeps the first occurrence of each address
+- **Export / Import** — Export all campaigns, history, and config to a single `.json` file; import on another device or share via SharePoint; merges with existing data rather than overwriting
 - **Named campaigns** — Save, reload, and delete campaigns by name; all compose state and CSV data are stored in `localStorage`
 - **Auto-draft** — Subject, body, and CSV are silently saved as you type; reloading the page restores exactly where you left off
 - **Send history** — Every completed campaign send is logged with per-recipient status, expandable detail view, and CSV export
@@ -85,6 +86,19 @@ The **History** tab records every completed send with:
 
 ---
 
+## Sharing Campaigns Across Devices
+
+All data is stored in the browser's `localStorage` by default, which is local to one browser on one machine. To use your campaigns on another device or share with a colleague:
+
+1. Click **Export all data (.json)** in the Data Export / Import panel
+2. Save the exported file to SharePoint (or any shared folder)
+3. On the other device, open the HTML file and click **Import from .json file**
+4. Select the exported file — campaigns, history, and config are merged in (existing data is kept)
+
+> **Tip:** Export after every session if you use the tool on multiple machines.
+
+---
+
 ## Send Settings
 
 | Setting | Description |
@@ -107,7 +121,7 @@ SendGrid's free tier allows ~100 emails/day. Paid tiers support much higher volu
 ## Files
 
 ```
-sendgrid-mailer.html   — the entire application (HTML + CSS + JS, ~1750 lines)
+sendgrid-mailer.html   — the entire application (HTML + CSS + JS, ~1850 lines)
 ```
 
 ---
