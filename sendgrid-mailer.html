@@ -607,6 +607,58 @@
     border-color: var(--green); background: rgba(91,171,68,0.04); color: var(--green);
   }
 
+  /* ─── Holiday Alert Tab ──────────────────────────────────────────────────── */
+  .ph-upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .ph-file-zone {
+    border: 2px dashed var(--border);
+    border-radius: 7px;
+    padding: 11px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: white;
+    text-align: center;
+  }
+
+  .ph-file-zone:hover { border-color: var(--green); background: rgba(91,171,68,0.04); }
+
+  .ph-file-zone.loaded {
+    border-style: solid;
+    border-color: var(--success);
+    background: #eafaf1;
+    cursor: pointer;
+  }
+
+  .ph-file-zone .ph-file-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+  }
+
+  .ph-file-zone.loaded .ph-file-label { color: #1a6b3a; }
+
+  .ph-file-zone .ph-file-status { font-size: 12px; color: var(--text-muted); }
+  .ph-file-zone.loaded .ph-file-status { color: #1a6b3a; font-weight: 600; }
+
+  .ph-section-hdr {
+    font-weight: 700;
+    font-size: 13px;
+    margin: 16px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-section-hdr:first-child { margin-top: 0; }
+
   .att-size-bar {
     height: 4px; background: var(--border); border-radius: 2px;
     overflow: hidden; margin-top: 8px;
@@ -682,7 +734,7 @@
         </div>
         <button class="btn btn-secondary btn-sm" onclick="saveConfig()" style="width:100%">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          Save to localStorage
+          Save Config
         </button>
       </div>
     </div>
@@ -793,6 +845,7 @@
       <div class="tab" data-tab="preview" onclick="switchTab('preview')">Preview</div>
       <div class="tab" data-tab="send" onclick="switchTab('send')">Send</div>
       <div class="tab" data-tab="history" onclick="switchTab('history')">History</div>
+      <div class="tab" data-tab="phAlert" onclick="switchTab('phAlert')">Holiday Alert</div>
     </div>
 
     <!-- COMPOSE TAB -->
@@ -923,6 +976,118 @@
       <div id="history-list"></div>
     </div>
 
+    <!-- HOLIDAY ALERT TAB -->
+    <div class="tab-pane" id="tab-phAlert" style="overflow-y:auto; flex:1;">
+
+      <!-- Logic explanation (collapsible) -->
+      <details style="margin-bottom:16px; border:1px solid #bdd4f5; border-radius:8px; background:#eaf2fb; overflow:hidden;">
+        <summary style="padding:10px 14px; font-size:13px; font-weight:600; color:#1a4a6b; cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; user-select:none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          How recipients are selected
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto; transition:transform 0.2s;" class="ph-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div style="padding:0 14px 14px; font-size:12px; color:#1a4a6b; line-height:1.7; border-top:1px solid #bdd4f5;">
+          <p style="margin:10px 0 8px; font-weight:600;">A person is included if ALL of the following are true:</p>
+          <ol style="margin:0 0 10px 18px; padding:0;">
+            <li><strong>Enabled = true</strong> in people.csv</li>
+            <li><strong>Role = SUPER or USER</strong> in people.csv (all other roles are excluded)</li>
+            <li>They have <strong>at least one building</strong> in exportUsers.csv whose state/region matches one of the states the selected public holiday applies to — AND that building has <strong>Public Holiday Applies? = Yes</strong> in buildings.csv</li>
+            <li>Their email is <strong>not</strong> on the Do Not Send list</li>
+          </ol>
+          <p style="margin:0 0 6px; font-weight:600;">Column requirements:</p>
+          <table style="border-collapse:collapse; width:100%; font-size:11px;">
+            <tr><th style="text-align:left; padding:3px 8px; background:rgba(0,0,0,0.06); border-radius:3px; white-space:nowrap;">people.csv</th><td style="padding:3px 8px;">Name, Email, Role, Enabled (required) · Company, Type (shown in results)</td></tr>
+            <tr><th style="text-align:left; padding:3px 8px; white-space:nowrap;">buildings.csv</th><td style="padding:3px 8px;">Code, Name, Region (state), Public Holiday Applies? (Yes/No)</td></tr>
+            <tr><th style="text-align:left; padding:3px 8px; background:rgba(0,0,0,0.06); border-radius:3px; white-space:nowrap;">exportUsers.csv</th><td style="padding:3px 8px;">Email, BuildingID (must match Code in buildings.csv), Building (name)</td></tr>
+            <tr><th style="text-align:left; padding:3px 8px; white-space:nowrap;">Do Not Send</th><td style="padding:3px 8px;">One email address per row — these people are always excluded regardless of other criteria</td></tr>
+          </table>
+          <p style="margin:10px 0 0; color:#2979b8;">Results are sorted alphabetically by name. Uncheck any row to exclude that person before loading into the mailer.</p>
+        </div>
+      </details>
+      <script>
+        // Rotate chevron when details opens/closes
+        document.querySelector('details').addEventListener('toggle', function() {
+          this.querySelector('.ph-chevron').style.transform = this.open ? 'rotate(180deg)' : '';
+        });
+      </script>
+
+      <div class="ph-section-hdr">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Data Sources
+      </div>
+
+      <div class="ph-upload-grid">
+        <div class="ph-file-zone" id="ph-zone-people" onclick="document.getElementById('ph-input-people').click()">
+          <div class="ph-file-label">people.csv</div>
+          <div class="ph-file-status" id="ph-status-people">Click to upload</div>
+          <input type="file" id="ph-input-people" accept=".csv" class="hidden" onchange="phHandleFile(event,'people')">
+        </div>
+        <div class="ph-file-zone" id="ph-zone-buildings" onclick="document.getElementById('ph-input-buildings').click()">
+          <div class="ph-file-label">buildings.csv</div>
+          <div class="ph-file-status" id="ph-status-buildings">Click to upload</div>
+          <input type="file" id="ph-input-buildings" accept=".csv" class="hidden" onchange="phHandleFile(event,'buildings')">
+        </div>
+        <div class="ph-file-zone" id="ph-zone-exportusers" onclick="document.getElementById('ph-input-exportusers').click()">
+          <div class="ph-file-label">exportUsers.csv</div>
+          <div class="ph-file-status" id="ph-status-exportusers">Click to upload</div>
+          <input type="file" id="ph-input-exportusers" accept=".csv" class="hidden" onchange="phHandleFile(event,'exportusers')">
+        </div>
+        <div class="ph-file-zone" id="ph-zone-donotsend" onclick="document.getElementById('ph-input-donotsend').click()">
+          <div class="ph-file-label">Do Not Send <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></div>
+          <div class="ph-file-status" id="ph-status-donotsend">Click to upload</div>
+          <input type="file" id="ph-input-donotsend" accept=".csv,.txt" class="hidden" onchange="phHandleFile(event,'donotsend')">
+        </div>
+      </div>
+
+      <div class="ph-section-hdr">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Public Holiday
+      </div>
+
+      <div style="display:flex; gap:10px; align-items:flex-end; margin-bottom:10px; flex-wrap:wrap;">
+        <div class="field-group" style="margin-bottom:0; flex:1; min-width:200px;">
+          <label>Select Holiday</label>
+          <select id="ph-holiday-select" onchange="phUpdateHolidayInfo()" style="width:100%;"></select>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="phShowHolidayEditor()" style="white-space:nowrap;">Edit holidays…</button>
+      </div>
+      <div style="font-size:12px; margin-bottom:14px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span style="color:var(--text-muted);">Applies to:</span>
+        <span id="ph-holiday-info" style="font-weight:700; color:var(--blue);">—</span>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="computeRecipients()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Compute Recipients
+        </button>
+      </div>
+
+      <div class="ph-section-hdr">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Recipients
+        <span class="badge" id="ph-recipient-count">0</span>
+      </div>
+
+      <div id="ph-recipients-wrap">
+        <div class="text-muted" style="text-align:center; padding:30px; font-size:13px;">
+          Upload the three data files and click Compute Recipients.
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+        <button class="btn btn-secondary btn-sm" onclick="phExportCSV()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-primary btn-sm" id="ph-load-btn" onclick="phLoadIntoMailer()" disabled>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Load into Mailer →
+        </button>
+      </div>
+
+    </div>
+
     <div class="send-footer" style="margin-top:auto;">
       <button class="btn btn-primary" id="send-btn" onclick="startSend()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -971,6 +1136,80 @@
   </div>
 </div>
 
+<!-- Holiday Editor Modal -->
+<div class="modal-backdrop hidden" id="ph-editor-modal" onclick="if(event.target===this) phCloseHolidayEditor()">
+  <div class="modal" style="width:920px; max-width:calc(100vw - 32px); display:flex; flex-direction:column; max-height:calc(100vh - 60px);">
+    <div class="modal-header">
+      <span>Edit Public Holidays</span>
+      <button class="modal-close" onclick="phCloseHolidayEditor()">✕</button>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tabs" style="flex-shrink:0; background:#fafbfc;">
+      <div class="tab active" id="ph-etab-table" onclick="phSwitchEditorTab('table')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        Table Editor
+      </div>
+      <div class="tab" id="ph-etab-csv" onclick="phSwitchEditorTab('csv')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        Raw CSV
+      </div>
+    </div>
+
+    <!-- Table view -->
+    <div id="ph-editor-table-view" style="overflow:auto; flex:1; min-height:0;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:760px;">
+        <thead>
+          <tr>
+            <th style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 10px; text-align:left; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; position:sticky; top:0; z-index:2; white-space:nowrap; min-width:140px;">Date</th>
+            <th style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 10px; text-align:left; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; position:sticky; top:0; z-index:2;">Holiday Name</th>
+            <th title="New South Wales"            style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 5px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; position:sticky; top:0; z-index:2; width:44px; cursor:help;">NSW</th>
+            <th title="Victoria"                   style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 5px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; position:sticky; top:0; z-index:2; width:44px; cursor:help;">VIC</th>
+            <th title="Queensland"                 style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 5px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; position:sticky; top:0; z-index:2; width:44px; cursor:help;">QLD</th>
+            <th title="South Australia"            style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 5px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; position:sticky; top:0; z-index:2; width:44px; cursor:help;">SA</th>
+            <th title="Western Australia"          style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 5px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; position:sticky; top:0; z-index:2; width:44px; cursor:help;">WA</th>
+            <th title="Tasmania"                   style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 5px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; position:sticky; top:0; z-index:2; width:44px; cursor:help;">TAS</th>
+            <th title="Northern Territory"         style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 5px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; position:sticky; top:0; z-index:2; width:44px; cursor:help;">NT</th>
+            <th title="Australian Capital Territory" style="background:#fafbfc; border-bottom:2px solid var(--border); padding:8px 5px; text-align:center; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; position:sticky; top:0; z-index:2; width:44px; cursor:help;">ACT</th>
+            <th style="background:#fafbfc; border-bottom:2px solid var(--border); position:sticky; top:0; z-index:2; width:36px;"></th>
+          </tr>
+        </thead>
+        <tbody id="ph-editor-tbody"></tbody>
+      </table>
+      <div style="padding:10px 12px; border-top:1px solid var(--border); background:#fafbfc;">
+        <button class="btn btn-secondary btn-sm" onclick="phAddHolidayRow()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Holiday
+        </button>
+      </div>
+    </div>
+
+    <!-- CSV view -->
+    <div id="ph-editor-csv-view" class="hidden" style="flex:1; padding:16px; overflow:auto; display:flex; flex-direction:column; gap:10px; min-height:0;">
+      <div class="alert alert-info" style="font-size:12px; flex-shrink:0;">
+        Format: <code>YYYY-MM-DD, Holiday Name, New South Wales, Victoria, Queensland, South Australia, Western Australia, Tasmania, Northern Territory, Australian Capital Territory</code>. Use <strong>Yes</strong> for applicable states.
+      </div>
+      <textarea id="ph-holidays-csv" style="flex:1; min-height:280px; font-family:monospace; font-size:11px; resize:none; padding:10px; border:1px solid var(--border); border-radius:6px; outline:none; line-height:1.5;"></textarea>
+    </div>
+
+    <div class="modal-footer">
+      <div style="flex:1; display:flex; gap:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="phDownloadHolidaysCSV()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download CSV
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ph-csv-upload').click()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload CSV
+        </button>
+        <input type="file" id="ph-csv-upload" accept=".csv" class="hidden" onchange="phUploadHolidaysCSV(event)">
+      </div>
+      <button class="btn btn-secondary" onclick="phCloseHolidayEditor()">Cancel</button>
+      <button class="btn btn-primary" onclick="phSaveHolidayEdits()">Apply Changes</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -993,9 +1232,47 @@ let currentCampaignId = null;
 let currentCampaignCsvText = '';
 let draftTimer = null;
 let attachments = []; // [{ filename, type, content (base64), size }]
+let dataCache = { config: {}, campaigns: [], history: [], draft: {} };
+
+// ─── Data layer ───────────────────────────────────────────────────────────────
+async function loadAllData() {
+  if (IS_LOCAL_SERVER) {
+    try {
+      const resp = await fetch('/data');
+      if (resp.ok) {
+        const d = await resp.json();
+        dataCache.config    = d.config    || {};
+        dataCache.campaigns = d.campaigns || [];
+        dataCache.history   = d.history   || [];
+        dataCache.draft     = d.draft     || {};
+        return;
+      }
+    } catch (_) {}
+  }
+  // Fallback: read from localStorage (for file:// or server error)
+  try { dataCache.config    = JSON.parse(localStorage.getItem('sg_mailer_config') || '{}'); } catch (_) {}
+  try { dataCache.campaigns = JSON.parse(localStorage.getItem('sg_campaigns')     || '[]'); } catch (_) {}
+  try { dataCache.history   = JSON.parse(localStorage.getItem('sg_send_history')  || '[]'); } catch (_) {}
+  try { dataCache.draft     = JSON.parse(localStorage.getItem('sg_draft')         || '{}'); } catch (_) {}
+}
+
+function saveData(key, value) {
+  dataCache[key] = value;
+  if (IS_LOCAL_SERVER) {
+    fetch('/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value }),
+    }).catch(() => {});
+    return;
+  }
+  // Fallback: localStorage
+  const lsKey = { config: 'sg_mailer_config', campaigns: 'sg_campaigns', history: 'sg_send_history', draft: 'sg_draft' }[key];
+  try { if (lsKey) localStorage.setItem(lsKey, JSON.stringify(value)); } catch (_) {}
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Register custom font sizes — renders as inline style="font-size:Xpx"
   // which is preserved through to email clients including Outlook.
   const Size = Quill.import('attributors/style/size');
@@ -1033,11 +1310,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('file-protocol-banner').style.display = '';
   }
 
+  await loadAllData();
   loadConfig();
   loadDraft();
   renderCampaignList();
   renderHistoryTab();
   updateSendSummary();
+  phInit();
 });
 
 // ─── Config persistence ───────────────────────────────────────────────────────
@@ -1049,19 +1328,17 @@ function saveConfig() {
     replyTo:   document.getElementById('reply-to').value,
     bcc:       document.getElementById('bcc').value,
   };
-  localStorage.setItem('sg_mailer_config', JSON.stringify(data));
-  toast('Config saved to localStorage', 'success');
+  saveData('config', data);
+  toast('Config saved', 'success');
 }
 
 function loadConfig() {
-  try {
-    const data = JSON.parse(localStorage.getItem('sg_mailer_config') || '{}');
-    if (data.apiKey)    document.getElementById('api-key').value    = data.apiKey;
-    if (data.fromEmail) document.getElementById('from-email').value = data.fromEmail;
-    if (data.fromName)  document.getElementById('from-name').value  = data.fromName;
-    if (data.replyTo)   document.getElementById('reply-to').value   = data.replyTo;
-    if (data.bcc)       document.getElementById('bcc').value        = data.bcc;
-  } catch (_) {}
+  const data = dataCache.config || {};
+  if (data.apiKey)    document.getElementById('api-key').value    = data.apiKey;
+  if (data.fromEmail) document.getElementById('from-email').value = data.fromEmail;
+  if (data.fromName)  document.getElementById('from-name').value  = data.fromName;
+  if (data.replyTo)   document.getElementById('reply-to').value   = data.replyTo;
+  if (data.bcc)       document.getElementById('bcc').value        = data.bcc;
 }
 
 function toggleApiKey() {
@@ -1272,7 +1549,24 @@ function renderPreview() {
 }
 
 function interpolate(template, vars) {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => esc(vars[key.toLowerCase()] || `{{${key}}}`));
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const raw = vars[key.toLowerCase()] || `{{${key}}}`;
+    const val = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? fmtOrdinalDate(raw) : raw;
+    return esc(val);
+  });
+}
+
+function fmtOrdinalDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (isNaN(d)) return iso;
+  const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const n = d.getDate();
+  const suffix = (n >= 11 && n <= 13) ? 'th'
+    : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th';
+  return `${days[d.getDay()]} ${n}${suffix} ${months[d.getMonth()]}`;
 }
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
@@ -1747,51 +2041,45 @@ function scheduleDraft() {
 }
 
 function persistDraft() {
-  try {
-    localStorage.setItem('sg_draft', JSON.stringify({
-      subject: document.getElementById('subject').value,
-      bodyHtml: quill ? quill.root.innerHTML : '',
-      csvText: currentCampaignCsvText,
-      campaignId: currentCampaignId,
-      campaignName: document.getElementById('campaign-name').value,
-    }));
-  } catch (_) {}
+  saveData('draft', {
+    subject: document.getElementById('subject').value,
+    bodyHtml: quill ? quill.root.innerHTML : '',
+    csvText: currentCampaignCsvText,
+    campaignId: currentCampaignId,
+    campaignName: document.getElementById('campaign-name').value,
+  });
 }
 
 function loadDraft() {
-  try {
-    const d = JSON.parse(localStorage.getItem('sg_draft') || '{}');
-    if (d.subject) document.getElementById('subject').value = d.subject;
-    if (d.bodyHtml && quill) quill.root.innerHTML = d.bodyHtml;
-    if (d.campaignName) document.getElementById('campaign-name').value = d.campaignName;
-    if (d.campaignId) currentCampaignId = d.campaignId;
-    if (d.csvText) {
-      try {
-        const result = parseCSVText(d.csvText);
-        if (result.columns.includes('email')) {
-          currentCampaignCsvText = d.csvText;
-          csvColumns = result.columns;
-          recipients = result.rows.filter(r => r.email && r.email.trim());
-          renderRecipientTable();
-          checkDuplicates();
-          updateVarChips();
-          updatePreviewSelect();
-          updateSendSummary();
-        }
-      } catch (_) {}
-    }
-  } catch (_) {}
+  const d = dataCache.draft || {};
+  if (d.subject) document.getElementById('subject').value = d.subject;
+  if (d.bodyHtml && quill) quill.root.innerHTML = d.bodyHtml;
+  if (d.campaignName) document.getElementById('campaign-name').value = d.campaignName;
+  if (d.campaignId) currentCampaignId = d.campaignId;
+  if (d.csvText) {
+    try {
+      const result = parseCSVText(d.csvText);
+      if (result.columns.includes('email')) {
+        currentCampaignCsvText = d.csvText;
+        csvColumns = result.columns;
+        recipients = result.rows.filter(r => r.email && r.email.trim());
+        renderRecipientTable();
+        checkDuplicates();
+        updateVarChips();
+        updatePreviewSelect();
+        updateSendSummary();
+      }
+    } catch (_) {}
+  }
 }
 
 // ─── Campaigns ────────────────────────────────────────────────────────────────
 function getCampaigns() {
-  try { return JSON.parse(localStorage.getItem('sg_campaigns') || '[]'); } catch (_) { return []; }
+  return dataCache.campaigns || [];
 }
 
 function setCampaigns(list) {
-  try { localStorage.setItem('sg_campaigns', JSON.stringify(list)); } catch (e) {
-    toast('Storage full — could not save campaign', 'error');
-  }
+  saveData('campaigns', list);
 }
 
 function saveCampaign() {
@@ -1916,22 +2204,17 @@ function renderCampaignList() {
 
 // ─── Send history ─────────────────────────────────────────────────────────────
 function getHistory() {
-  try { return JSON.parse(localStorage.getItem('sg_send_history') || '[]'); } catch (_) { return []; }
+  return dataCache.history || [];
 }
 
 function saveSendHistory(entry) {
-  const history = getHistory();
-  history.unshift({ id: Date.now(), sentAt: new Date().toISOString(), ...entry });
-  try { localStorage.setItem('sg_send_history', JSON.stringify(history)); } catch (_) {
-    // If storage full, trim oldest entries and retry
-    history.splice(20);
-    try { localStorage.setItem('sg_send_history', JSON.stringify(history)); } catch (_) {}
-  }
+  const history = [{ id: Date.now(), sentAt: new Date().toISOString(), ...entry }, ...getHistory()];
+  saveData('history', history);
 }
 
 function clearHistory() {
   if (!confirm('Delete all send history? This cannot be undone.')) return;
-  localStorage.removeItem('sg_send_history');
+  saveData('history', []);
   renderHistoryTab();
   toast('History cleared', 'success');
 }
@@ -2015,10 +2298,10 @@ function exportAllData() {
   const data = {
     _version: 1,
     _exported: new Date().toISOString(),
-    config:   JSON.parse(localStorage.getItem('sg_mailer_config')  || '{}'),
-    campaigns: JSON.parse(localStorage.getItem('sg_campaigns')     || '[]'),
-    history:  JSON.parse(localStorage.getItem('sg_send_history')   || '[]'),
-    draft:    JSON.parse(localStorage.getItem('sg_draft')          || '{}'),
+    config:    dataCache.config    || {},
+    campaigns: dataCache.campaigns || [],
+    history:   dataCache.history   || [],
+    draft:     dataCache.draft     || {},
   };
 
   const filename = `sg-mailer-export-${new Date().toISOString().slice(0,10)}.json`;
@@ -2046,7 +2329,7 @@ function importAllData(e) {
       const summary = [];
 
       if (data.config && typeof data.config === 'object') {
-        localStorage.setItem('sg_mailer_config', JSON.stringify(data.config));
+        saveData('config', data.config);
         loadConfig();
         summary.push('config');
       }
@@ -2068,13 +2351,14 @@ function importAllData(e) {
         // Re-sort newest first and cap at 100
         merged.sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
         merged.splice(100);
-        localStorage.setItem('sg_send_history', JSON.stringify(merged));
+        saveData('history', merged);
         summary.push(`${data.history.length} history entry/entries`);
       }
 
-      if (data.draft && typeof data.draft === 'object' && !localStorage.getItem('sg_draft')) {
+      const hasDraft = Object.keys(dataCache.draft || {}).length > 0;
+      if (data.draft && typeof data.draft === 'object' && !hasDraft) {
         // Only restore draft if there is no existing draft (avoid overwriting in-progress work)
-        localStorage.setItem('sg_draft', JSON.stringify(data.draft));
+        saveData('draft', data.draft);
         loadDraft();
         summary.push('draft');
       }
@@ -2136,6 +2420,538 @@ function normaliseEmailHtml(html) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── Holiday Alert Tab ────────────────────────────────────────────────────────
+let phPeople = [];
+let phBuildings = [];
+let phExportUsers = [];
+let phDoNotSend = new Set();
+let phHolidays = [];
+let phRecipients = [];
+
+const PH_STATE_MAP = {
+  'New South Wales': 'NSW', 'Victoria': 'VIC', 'Queensland': 'QLD',
+  'South Australia': 'SA', 'Western Australia': 'WA', 'Tasmania': 'TAS',
+  'Northern Territory': 'NT', 'Australian Capital Territory': 'ACT',
+};
+const PH_STATES_LIST = Object.keys(PH_STATE_MAP);
+
+// Default Australian public holidays 2025-2026.
+// Format: Date (YYYY-MM-DD), Holiday Name, NSW, VIC, QLD, SA, WA, TAS, NT, ACT
+const PH_DEFAULT_CSV = `Date,Holiday Name,New South Wales,Victoria,Queensland,South Australia,Western Australia,Tasmania,Northern Territory,Australian Capital Territory
+2025-01-01,New Year's Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2025-01-27,Australia Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2025-03-03,Labour Day (WA),,,,,Yes,,,
+2025-03-10,Labour Day / Eight Hours Day,,Yes,,,,,Yes,
+2025-03-10,Canberra Day,,,,,,,,Yes
+2025-03-10,Adelaide Cup Day,,,,Yes,,,,
+2025-04-18,Good Friday,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2025-04-21,Easter Monday,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2025-04-25,ANZAC Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2025-05-05,Labour Day / May Day,,,Yes,,,,Yes,
+2025-06-02,Western Australia Day,,,,,Yes,,,
+2025-06-02,Reconciliation Day,,,,,,,,Yes
+2025-06-09,King's Birthday,Yes,Yes,,Yes,,Yes,Yes,Yes
+2025-10-06,Labour Day,Yes,,,Yes,,,,Yes
+2025-11-04,Melbourne Cup Day,,Yes,,,,,,
+2025-12-25,Christmas Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2025-12-26,Boxing Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2026-01-01,New Year's Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2026-01-26,Australia Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2026-03-02,Labour Day (WA),,,,,Yes,,,
+2026-03-09,Labour Day / Eight Hours Day,,Yes,,,,,Yes,
+2026-03-09,Canberra Day,,,,,,,,Yes
+2026-03-09,Adelaide Cup Day,,,,Yes,,,,
+2026-04-03,Good Friday,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2026-04-06,Easter Monday,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2026-04-07,Easter Tuesday (TAS),,,,,,Yes,,
+2026-04-25,ANZAC Day,,Yes,Yes,Yes,,Yes,Yes,
+2026-04-27,ANZAC Day (substitute),Yes,,,,Yes,,,Yes
+2026-05-04,Labour Day / May Day,,,Yes,,,,Yes,
+2026-06-01,Western Australia Day,,,,,Yes,,,
+2026-06-01,Reconciliation Day,,,,,,,,Yes
+2026-06-08,King's Birthday,Yes,Yes,,Yes,,Yes,Yes,Yes
+2026-08-03,Picnic Day (NT),,,,,,,Yes,
+2026-09-28,King's Birthday (WA),,,,,Yes,,,
+2026-10-05,Labour Day,Yes,,,Yes,,,,Yes
+2026-12-25,Christmas Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes
+2026-12-28,Boxing Day,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes`;
+
+function phInit() {
+  phHolidays = phParseHolidayCSV(PH_DEFAULT_CSV);
+  const ta = document.getElementById('ph-holidays-csv');
+  if (ta) ta.value = PH_DEFAULT_CSV;
+  phRenderHolidaySelect();
+}
+
+function phParseHolidayCSV(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = parseCSVRow(lines[0]);
+  const stateHeaders = headers.slice(2);
+  const out = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCSVRow(lines[i]);
+    const date = (vals[0] || '').trim();
+    const name = (vals[1] || '').trim();
+    if (!date || !name) continue;
+    const states = [];
+    stateHeaders.forEach((s, j) => {
+      if (/^yes$/i.test((vals[j + 2] || '').trim())) states.push(s.trim());
+    });
+    out.push({ date, name, states });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function phRenderHolidaySelect() {
+  const sel = document.getElementById('ph-holiday-select');
+  if (!sel) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = phHolidays.filter(h => h.date >= today);
+  const past = [...phHolidays.filter(h => h.date < today)].reverse();
+  sel.innerHTML = '';
+
+  function addGroup(label, list) {
+    const g = document.createElement('optgroup');
+    g.label = label;
+    list.forEach(h => {
+      const o = document.createElement('option');
+      o.value = JSON.stringify({ date: h.date, name: h.name });
+      const abbrs = h.states.map(s => PH_STATE_MAP[s] || s).join(', ');
+      o.textContent = `${h.date} — ${h.name}` + (abbrs ? ` (${abbrs})` : '');
+      g.appendChild(o);
+    });
+    if (g.children.length) sel.appendChild(g);
+  }
+
+  addGroup('Upcoming', upcoming);
+  addGroup('Past', past);
+  sel.selectedIndex = 0;
+  phUpdateHolidayInfo();
+}
+
+function phGetSelectedHoliday() {
+  const sel = document.getElementById('ph-holiday-select');
+  if (!sel || !sel.value) return null;
+  try {
+    const { date, name } = JSON.parse(sel.value);
+    return phHolidays.find(h => h.date === date && h.name === name) || null;
+  } catch (_) { return null; }
+}
+
+function phUpdateHolidayInfo() {
+  const h = phGetSelectedHoliday();
+  const el = document.getElementById('ph-holiday-info');
+  if (el) el.textContent = h ? h.states.map(s => PH_STATE_MAP[s] || s).join(', ') || '(no states)' : '—';
+}
+
+function phShowHolidayEditor() {
+  // Sync both views from current phHolidays before opening
+  phBuildHolidayTable(phHolidays);
+  document.getElementById('ph-holidays-csv').value = phHolidaysToCSV(phHolidays);
+  document.getElementById('ph-editor-modal').classList.remove('hidden');
+  phSwitchEditorTab('table');
+}
+
+function phCloseHolidayEditor() {
+  document.getElementById('ph-editor-modal').classList.add('hidden');
+}
+
+function phSaveHolidayEdits() {
+  const holidays = phEditorActiveTab() === 'table'
+    ? phReadHolidayTable()
+    : phParseHolidayCSV(document.getElementById('ph-holidays-csv').value);
+  if (!holidays.length) { toast('No valid holidays found', 'error'); return; }
+  phHolidays = holidays;
+  phRenderHolidaySelect();
+  phCloseHolidayEditor();
+  toast(`Saved ${holidays.length} holidays`, 'success');
+}
+
+function phEditorActiveTab() {
+  return document.getElementById('ph-editor-table-view').classList.contains('hidden') ? 'csv' : 'table';
+}
+
+function phSwitchEditorTab(tab) {
+  const tableView = document.getElementById('ph-editor-table-view');
+  const csvView   = document.getElementById('ph-editor-csv-view');
+  const tableBtn  = document.getElementById('ph-etab-table');
+  const csvBtn    = document.getElementById('ph-etab-csv');
+
+  if (tab === 'table') {
+    // Sync table from CSV if CSV was active and has content
+    if (!csvView.classList.contains('hidden')) {
+      const parsed = phParseHolidayCSV(document.getElementById('ph-holidays-csv').value);
+      if (parsed.length > 0) phBuildHolidayTable(parsed);
+    }
+    tableView.classList.remove('hidden');
+    csvView.classList.add('hidden');
+    tableBtn.classList.add('active');
+    csvBtn.classList.remove('active');
+  } else {
+    // Sync CSV from table
+    const holidays = phReadHolidayTable();
+    if (holidays.length > 0) document.getElementById('ph-holidays-csv').value = phHolidaysToCSV(holidays);
+    csvView.classList.remove('hidden');
+    tableView.classList.add('hidden');
+    csvBtn.classList.add('active');
+    tableBtn.classList.remove('active');
+  }
+}
+
+// ── Table editor helpers ──────────────────────────────────────────────────────
+function phHolidaysToCSV(holidays) {
+  const header = 'Date,Holiday Name,' + PH_STATES_LIST.join(',');
+  const rows = holidays.map(h =>
+    [h.date, h.name, ...PH_STATES_LIST.map(s => h.states.includes(s) ? 'Yes' : '')].map(csvEscapeVal).join(',')
+  );
+  return [header, ...rows].join('\n');
+}
+
+function phBuildHolidayTable(holidays) {
+  const tbody = document.getElementById('ph-editor-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = (holidays || phHolidays).map(h => phHolidayRowHTML(h)).join('');
+}
+
+function phHolidayRowHTML(h) {
+  const inp = 'padding:4px 7px; border:1px solid var(--border); border-radius:4px; font-size:12px; font-family:inherit; outline:none; background:white; transition:border-color 0.15s;';
+  const td  = 'padding:5px 6px; border-bottom:1px solid #f0f2f4;';
+  return `<tr>
+    <td style="${td}">
+      <input type="date" value="${esc(h.date)}"
+        style="${inp} width:135px;"
+        onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+    </td>
+    <td style="${td}">
+      <input type="text" value="${esc(h.name)}" placeholder="Holiday name"
+        style="${inp} width:100%; min-width:160px;"
+        onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+    </td>
+    ${PH_STATES_LIST.map(s => `
+    <td style="${td} text-align:center; vertical-align:middle;">
+      <input type="checkbox" ${h.states.includes(s) ? 'checked' : ''}
+        style="width:15px; height:15px; cursor:pointer; accent-color:var(--green);">
+    </td>`).join('')}
+    <td style="${td} text-align:center; vertical-align:middle;">
+      <button class="btn btn-secondary btn-sm btn-icon" onclick="this.closest('tr').remove()" title="Delete row" style="padding:4px 6px; color:var(--danger);">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+    </td>
+  </tr>`;
+}
+
+function phReadHolidayTable() {
+  const tbody = document.getElementById('ph-editor-tbody');
+  if (!tbody) return [];
+  const holidays = [];
+  for (const row of tbody.querySelectorAll('tr')) {
+    const inputs = row.querySelectorAll('input');
+    const date = inputs[0].value.trim();
+    const name = inputs[1].value.trim();
+    if (!date || !name) continue;
+    const states = [];
+    PH_STATES_LIST.forEach((s, j) => { if (inputs[j + 2].checked) states.push(s); });
+    holidays.push({ date, name, states });
+  }
+  return holidays.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function phAddHolidayRow() {
+  const tbody = document.getElementById('ph-editor-tbody');
+  if (!tbody) return;
+  const tmp = document.createElement('table');
+  tmp.innerHTML = '<tbody>' + phHolidayRowHTML({ date: '', name: '', states: [] }) + '</tbody>';
+  const row = tmp.querySelector('tr');
+  tbody.appendChild(row);
+  row.querySelector('input[type=date]').focus();
+  row.scrollIntoView({ block: 'nearest' });
+}
+
+function phDownloadHolidaysCSV() {
+  const holidays = phEditorActiveTab() === 'table'
+    ? phReadHolidayTable()
+    : phParseHolidayCSV(document.getElementById('ph-holidays-csv').value);
+  if (!holidays.length) { toast('No holidays to export', 'warning'); return; }
+  downloadCSV('public-holidays.csv', phHolidaysToCSV(holidays));
+  toast(`Downloaded ${holidays.length} holidays`, 'success');
+}
+
+function phUploadHolidaysCSV(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const parsed = phParseHolidayCSV(ev.target.result);
+    if (!parsed.length) { toast('No valid holidays found in file', 'error'); return; }
+    phBuildHolidayTable(parsed);
+    document.getElementById('ph-holidays-csv').value = phHolidaysToCSV(parsed);
+    phSwitchEditorTab('table');
+    toast(`Loaded ${parsed.length} holidays from ${file.name}`, 'success');
+  };
+  reader.readAsText(file);
+}
+
+// ── File upload handlers ──────────────────────────────────────────────────────
+function phHandleFile(e, type) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const text = ev.target.result;
+      if (type === 'people') {
+        phPeople = phParsePeople(text);
+        phSetFileStatus('people', `${phPeople.length} people`);
+      } else if (type === 'buildings') {
+        phBuildings = phParseBuildings(text);
+        phSetFileStatus('buildings', `${phBuildings.length} buildings`);
+      } else if (type === 'exportusers') {
+        phExportUsers = phParseExportUsers(text);
+        phSetFileStatus('exportusers', `${phExportUsers.length} rows`);
+      } else if (type === 'donotsend') {
+        phDoNotSend = phParseDoNotSend(text);
+        phSetFileStatus('donotsend', `${phDoNotSend.size} excluded`);
+      }
+    } catch (err) {
+      toast(`Failed to parse ${file.name}: ${err.message}`, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function phSetFileStatus(type, msg) {
+  const zone = document.getElementById(`ph-zone-${type}`);
+  const stat = document.getElementById(`ph-status-${type}`);
+  if (zone) zone.classList.add('loaded');
+  if (stat) stat.textContent = '✓ ' + msg;
+}
+
+function phParsePeople(text) {
+  const { rows } = parseCSVText(text);
+  return rows.map(r => ({
+    name:    r['name'] || '',
+    email:   (r['email'] || '').toLowerCase().trim(),
+    company: r['company'] || '',
+    role:    (r['role'] || '').toUpperCase().trim(),
+    type:    r['type'] || '',
+    enabled: r['enabled'] === '1' || /^(true|yes)$/i.test(r['enabled'] || ''),
+  })).filter(r => r.email);
+}
+
+function phParseBuildings(text) {
+  const { rows } = parseCSVText(text);
+  // After parseCSVText: "Public Holiday Applies?" -> "public_holiday_applies?"
+  const hasPHCol = rows.length > 0 && (
+    'public_holiday_applies?' in rows[0] ||
+    'public_holiday_applies' in rows[0]
+  );
+  return rows.map(r => ({
+    code:      (r['code'] || '').trim(),
+    name:      (r['name'] || '').trim(),
+    region:    r['region'] || '',
+    // If column missing, treat all buildings as applicable
+    phApplies: hasPHCol
+      ? /^yes$/i.test(r['public_holiday_applies?'] || r['public_holiday_applies'] || '')
+      : true,
+  })).filter(r => r.code);
+}
+
+function phParseExportUsers(text) {
+  const { rows } = parseCSVText(text);
+  return rows.map(r => ({
+    email:      (r['email'] || '').toLowerCase().trim(),
+    buildingId: (r['buildingid'] || r['building_id'] || r['code'] || '').trim(),
+    buildingName: r['building'] || r['name'] || '',
+  })).filter(r => r.email && r.buildingId);
+}
+
+function phParseDoNotSend(text) {
+  const emails = new Set();
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  for (const line of lines) {
+    const val = line.trim().toLowerCase().replace(/^"(.*)"$/, '$1').trim();
+    if (val && val !== 'email' && val.includes('@')) emails.add(val);
+  }
+  return emails;
+}
+
+// ── Core logic ────────────────────────────────────────────────────────────────
+function computeRecipients() {
+  const holiday = phGetSelectedHoliday();
+  if (!holiday)            { toast('Select a holiday first', 'warning'); return; }
+  if (!phPeople.length)    { toast('Upload people.csv first', 'warning'); return; }
+  if (!phBuildings.length) { toast('Upload buildings.csv first', 'warning'); return; }
+  if (!phExportUsers.length){ toast('Upload exportUsers.csv first', 'warning'); return; }
+
+  // Index buildings by code
+  const bldgByCode = {};
+  phBuildings.forEach(b => { bldgByCode[b.code] = b; });
+
+  // Index exportUsers by email -> [{buildingId, buildingName}]
+  const userBldgs = {};
+  phExportUsers.forEach(eu => {
+    if (!userBldgs[eu.email]) userBldgs[eu.email] = [];
+    userBldgs[eu.email].push(eu);
+  });
+
+  const applicableStates = new Set(holiday.states);
+  const results = [];
+
+  for (const p of phPeople) {
+    // Must be enabled with role SUPER or USER
+    if (!p.enabled) continue;
+    if (p.role !== 'SUPER' && p.role !== 'USER') continue;
+    // Must not be on the do-not-send list
+    if (phDoNotSend.has(p.email)) continue;
+
+    const bldgRefs = userBldgs[p.email] || [];
+    const matchBldgs = [];
+    const matchStates = new Set();
+
+    for (const ref of bldgRefs) {
+      const b = bldgByCode[ref.buildingId];
+      if (!b) continue;
+      if (!b.phApplies) continue;
+      if (!applicableStates.has(b.region)) continue;
+      const bName = b.name || ref.buildingName;
+      if (bName && !matchBldgs.includes(bName)) matchBldgs.push(bName);
+      matchStates.add(PH_STATE_MAP[b.region] || b.region);
+    }
+
+    if (matchBldgs.length === 0) continue;
+
+    results.push({
+      email:         p.email,
+      name:          p.name,
+      firstName:     p.name.split(/\s+/)[0],
+      company:       p.company,
+      type:          p.type,
+      buildings:     matchBldgs,
+      states:        [...matchStates].sort(),
+      holidayStates: holiday.states.map(s => PH_STATE_MAP[s] || s).sort().join(', '),
+      holiday:       holiday.name,
+      holidayDate:   holiday.date,
+      enabled:       true,
+    });
+  }
+
+  results.sort((a, b) => a.name.localeCompare(b.name));
+  phRecipients = results;
+  document.getElementById('ph-recipient-count').textContent = results.length;
+  renderPHRecipients();
+  toast(
+    `Found ${results.length} recipient${results.length !== 1 ? 's' : ''} for ${holiday.name}`,
+    results.length > 0 ? 'success' : 'warning'
+  );
+}
+
+// ── Render recipients table ───────────────────────────────────────────────────
+function renderPHRecipients() {
+  const wrap = document.getElementById('ph-recipients-wrap');
+  const loadBtn = document.getElementById('ph-load-btn');
+
+  if (phRecipients.length === 0) {
+    wrap.innerHTML = '<div class="text-muted" style="text-align:center; padding:30px; font-size:13px;">No recipients found. Ensure people are Enabled with role SUPER or USER and have buildings in the applicable states.</div>';
+    if (loadBtn) loadBtn.disabled = true;
+    return;
+  }
+
+  if (loadBtn) loadBtn.disabled = false;
+  const enabledCount = phRecipients.filter(r => r.enabled).length;
+
+  wrap.innerHTML = `
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; margin:0; text-transform:none; letter-spacing:0;">
+        <input type="checkbox" id="ph-select-all" onchange="phToggleAll(this.checked)" ${enabledCount === phRecipients.length ? 'checked' : ''}>
+        Select all
+      </label>
+      <span class="text-muted" style="font-size:12px;" id="ph-sel-count">${enabledCount} of ${phRecipients.length} selected</span>
+    </div>
+    <div style="overflow:auto; max-height:calc(100vh - 420px); min-height:260px; border:1px solid var(--border); border-radius:6px;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:860px;">
+        <thead><tr>
+          <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 8px; width:30px; position:sticky; top:0; z-index:1;"></th>
+          <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; color:var(--text-muted); white-space:nowrap; position:sticky; top:0; z-index:1;">Name</th>
+          <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; color:var(--text-muted); white-space:nowrap; position:sticky; top:0; z-index:1;">Email</th>
+          <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; color:var(--text-muted); white-space:nowrap; position:sticky; top:0; z-index:1;">Company</th>
+          <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; color:var(--text-muted); white-space:nowrap; position:sticky; top:0; z-index:1;" title="States where this recipient has matching buildings">Their States</th>
+          <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; color:var(--text-muted); white-space:nowrap; position:sticky; top:0; z-index:1;" title="All states this public holiday applies to">Holiday States</th>
+          <th style="background:#fafbfc; border-bottom:1px solid var(--border); padding:7px 10px; text-align:left; color:var(--text-muted); position:sticky; top:0; z-index:1;">Buildings</th>
+        </tr></thead>
+        <tbody>
+          ${phRecipients.map((r, i) => `
+            <tr style="${!r.enabled ? 'opacity:0.4;' : ''}">
+              <td style="padding:7px 8px; border-bottom:1px solid #f0f2f4; text-align:center;">
+                <input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="phToggleOne(${i}, this.checked)">
+              </td>
+              <td style="padding:7px 10px; border-bottom:1px solid #f0f2f4; white-space:nowrap;">
+                <div style="font-weight:600;">${esc(r.name)}</div>
+                <div style="color:var(--text-muted); font-size:11px;">${esc(r.type)}</div>
+              </td>
+              <td style="padding:7px 10px; border-bottom:1px solid #f0f2f4; white-space:nowrap;">${esc(r.email)}</td>
+              <td style="padding:7px 10px; border-bottom:1px solid #f0f2f4; white-space:nowrap;">${esc(r.company)}</td>
+              <td style="padding:7px 10px; border-bottom:1px solid #f0f2f4; white-space:nowrap;">${esc(r.states.join(', '))}</td>
+              <td style="padding:7px 10px; border-bottom:1px solid #f0f2f4; white-space:nowrap; color:var(--blue); font-weight:600;">${esc(r.holidayStates)}</td>
+              <td style="padding:7px 10px; border-bottom:1px solid #f0f2f4; min-width:200px; white-space:normal; line-height:1.5;">${esc(r.buildings.join('; '))}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function phToggleAll(checked) {
+  phRecipients.forEach(r => r.enabled = checked);
+  renderPHRecipients();
+}
+
+function phToggleOne(i, checked) {
+  phRecipients[i].enabled = checked;
+  const el = document.getElementById('ph-sel-count');
+  if (el) el.textContent = `${phRecipients.filter(r => r.enabled).length} of ${phRecipients.length} selected`;
+}
+
+// ── Export / load ─────────────────────────────────────────────────────────────
+function phBuildCSV(active) {
+  const header = 'email,name,first_name,company,type,buildings,states,holiday_states,holiday,holiday_date';
+  const rows = active.map(r => [
+    r.email, r.name, r.firstName, r.company, r.type,
+    r.buildings.join('; '), r.states.join(', '), r.holidayStates, r.holiday, r.holidayDate,
+  ].map(csvEscapeVal).join(','));
+  return [header, ...rows].join('\n');
+}
+
+function phExportCSV() {
+  const active = phRecipients.filter(r => r.enabled);
+  if (!active.length) { toast('No recipients selected', 'warning'); return; }
+  downloadCSV(`holiday-alert-${active[0]?.holidayDate || 'export'}.csv`, phBuildCSV(active));
+}
+
+function phLoadIntoMailer() {
+  const active = phRecipients.filter(r => r.enabled);
+  if (!active.length) { toast('No recipients selected', 'warning'); return; }
+  try {
+    const csvText = phBuildCSV(active);
+    const result = parseCSVText(csvText);
+    csvColumns = result.columns;
+    recipients = result.rows.filter(r => r.email && r.email.trim());
+    currentCampaignCsvText = csvText;
+    hideCsvError();
+    renderRecipientTable();
+    checkDuplicates();
+    updateVarChips();
+    updatePreviewSelect();
+    updateSendSummary();
+    scheduleDraft();
+    switchTab('compose');
+    toast(`Loaded ${recipients.length} holiday alert recipients into mailer`, 'success');
+  } catch (err) {
+    toast('Failed to load: ' + err.message, 'error');
+  }
+}
 
 function toast(msg, type = 'info') {
   const container = document.getElementById('toast-container');

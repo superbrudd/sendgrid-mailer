@@ -19,6 +19,7 @@ A self-contained, single-file web app for sending personalised bulk email campai
 - **Send history** — Every completed campaign send is logged with per-recipient status, expandable detail view, and CSV export
 - **Batch sending** — Configurable batch size and inter-batch delay to respect SendGrid rate limits
 - **LocalStorage config** — API key, from-name and from-email persist across sessions
+- **Holiday Alert tab** — Cross-references people, buildings, and exportUsers CSVs to compute who needs a public holiday warning email; built-in 2025–2026 Australian public holiday schedule; recipient list with per-person enable/disable checkboxes; loads directly into the mailer as the campaign recipient list with variables `{{first_name}}`, `{{buildings}}`, `{{holiday}}`, etc.
 
 ---
 
@@ -94,16 +95,31 @@ The **History** tab records every completed send with:
 
 ---
 
+## Data Storage
+
+When running via `mailer_server.py` (the recommended way), all data is saved to local JSON files in `mailer_data/` next to the server:
+
+| File | Contents |
+|---|---|
+| `mailer_data/config.json` | API key, from email/name, reply-to, BCC |
+| `mailer_data/campaigns.json` | All saved campaigns |
+| `mailer_data/history.json` | Send history |
+| `mailer_data/draft.json` | Auto-saved draft |
+
+Data loads automatically when you open the app and saves instantly as you work. If you place the project folder in a **OneDrive or SharePoint-synced folder**, all data is shared across devices automatically — no manual export/import needed.
+
+When opened directly as `file://` (not via the server), the app falls back to the browser's `localStorage`.
+
 ## Sharing Campaigns Across Devices
 
-All data is stored in the browser's `localStorage` by default, which is local to one browser on one machine. To use your campaigns on another device or share with a colleague:
+**Recommended:** Put the project folder in a SharePoint/OneDrive-synced location. The `mailer_data/` folder syncs automatically.
+
+**Alternative (manual):** Use the Export / Import panel to copy data between machines:
 
 1. Click **Export all data (.json)** in the Data Export / Import panel
 2. Save the exported file to SharePoint (or any shared folder)
 3. On the other device, open the HTML file and click **Import from .json file**
 4. Select the exported file — campaigns, history, and config are merged in (existing data is kept)
-
-> **Tip:** Export after every session if you use the tool on multiple machines.
 
 ---
 
@@ -120,7 +136,7 @@ SendGrid's free tier allows ~100 emails/day. Paid tiers support much higher volu
 
 ## Security Notes
 
-- Your API key is stored only in your browser's `localStorage` — it never leaves your machine except in requests to `api.sendgrid.com`
+- Your API key is saved in `mailer_data/config.json` (local file, never transmitted except in requests to `api.sendgrid.com`)
 - Use a SendGrid API key scoped to **Mail Send** only (not a full-access key)
 - All email sending goes directly from your browser to `https://api.sendgrid.com/v3/mail/send`
 
@@ -140,3 +156,29 @@ mailer_server.py       — local Python proxy server (stdlib only, no pip instal
 - A [SendGrid account](https://sendgrid.com/) with a verified sender identity
 - A modern browser (Chrome, Firefox, Edge, Safari)
 - No Node.js, Python, or any other runtime needed
+
+
+
+add a new "tab" to this project. It will be a tool to send out emails to users who have buildings in particular states as a warning when public holidays are approaching so they can ensure their building will shut down and save energy.  
+- Use the excel spreadsheet as example
+INPUTS:
+- people.csv - list of all people
+- buildings.csv - list of all buildings
+- exportUsers.csv - a list t of people and which buildings they can see
+- do not send list.csv - a list of emails addresses NOT to send emails to
+- public holidays
+- 
+
+The tool should cross reference these spreadsheets to work out which users to send emaisl to:
+- Users that are:
+  - Enabled is True
+  - Role is Super or User
+  - Only users who can see buildings in the state where the public holiday applies
+
+- The tool should generate a list of people to send the email to, but allow the users of this html file to disable any users they do not want to send emails to
+- The list of users should contain their email address, name, first name, buildings that they can see
+
+
+
+
+
